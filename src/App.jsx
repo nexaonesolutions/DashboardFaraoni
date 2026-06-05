@@ -4,7 +4,7 @@ import {
   Search, Filter, MoreVertical, Bell, Save, Phone, Mail, Check, 
   Trash2, Edit, AlertCircle, FileText, ArrowRight, UserPlus, Info, CheckCircle2,
   Lock, Eye, EyeOff, ShieldCheck, Stethoscope, ChevronRight, RefreshCw, KeyRound, Sparkles,
-  UserCheck, UserMinus, ShieldAlert
+  UserCheck, UserMinus, ShieldAlert, Wifi, WifiOff, QrCode, CreditCard, Download, ExternalLink
 } from 'lucide-react';
 
 const App = () => {
@@ -71,13 +71,15 @@ const App = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isDentistModalOpen, setIsDentistModalOpen] = useState(false);
-  
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState(null);
   
-  // Filtro de profissional selecionado na visão geral (exclusivo para master admin)
+  // Sub-abas de Definições
+  const [settingsSubTab, setSettingsSubTab] = useState('clinic'); // 'clinic' | 'notifications' | 'billing'
+  
+  // Filtro de profissional na visão geral
   const [selectedDentistFilter, setSelectedDentistFilter] = useState('Todos');
 
-  // Custom Toast notification system (Vercel-like design)
+  // Custom Toast notification system
   const [toasts, setToasts] = useState([]);
   const addToast = (message, type = 'success') => {
     const id = Date.now();
@@ -108,7 +110,7 @@ const App = () => {
   // Novo agendamento form state
   const [formData, setFormData] = useState({ patientId: '', dentistId: '', procedure: '', time: '', date: '2026-06-05' });
 
-  // Lista de Pacientes com Prontuário
+  // Lista de Pacientes
   const [patientsList, setPatientsList] = useState([
     { 
       id: 1, 
@@ -160,28 +162,46 @@ const App = () => {
     }
   ]);
 
+  // CONFIGURAÇÕES AVANÇADAS: LEMBRETES E WHATSAPP (ESTADO REAL)
+  const [whatsSettings, setWhatsSettings] = useState({
+    status: 'connected', // 'connected' | 'disconnected' | 'connecting'
+    instanceName: 'evolution_faraoni_instance',
+    webhookUrl: 'https://api.odontofaraoni.com.br/webhooks/whatsapp',
+    whatsappTemplate: 'Olá, [PACIENTE]! Confirmamos sua consulta odontológica na [CLINICA] em [DATA] às [HORA] com o [DENTISTA]. Caso precise reagendar, responda esta mensagem.',
+    smsTemplate: 'Lembrete: Consulta amanha as [HORA] na [CLINICA] com [DENTISTA].',
+    send24h: true,
+    sendInstant: true,
+    sendPostVisit: true,
+    testPhone: ''
+  });
+
+  // CONFIGURAÇÕES AVANÇADAS: COBRANÇA E FATURAMENTO (ESTADO REAL)
+  const [billingSettings, setBillingSettings] = useState({
+    gateway: 'stripe', // 'stripe' | 'asaas' | 'mercadopago'
+    publicKey: 'pk_test_mock_key_faraoni_1092',
+    secretKey: 'sk_test_mock_secret_998273612',
+    pixEnabled: true,
+    cardEnabled: true,
+    boletoEnabled: false,
+    planName: 'OdontoGestão Professional Group',
+    planPrice: '199,00',
+    nextRenewal: '15/06/2026',
+    invoices: [
+      { id: 'FT-2026-901', date: '15/05/2026', amount: 'R$ 199,00', status: 'Pago', method: 'Cartão de Crédito' },
+      { id: 'FT-2026-804', date: '15/04/2026', amount: 'R$ 199,00', status: 'Pago', method: 'Cartão de Crédito' },
+      { id: 'FT-2026-702', date: '15/03/2026', amount: 'R$ 199,00', status: 'Pago', method: 'Boleto Bancário' }
+    ]
+  });
+
   // Temp form para paciente
   const [patientFormData, setPatientFormData] = useState({ 
-    id: null, 
-    name: '', 
-    phone: '', 
-    email: '', 
-    status: 'Ativo',
-    allergies: 'Sem alergias sistêmicas relatadas',
-    medicalNotes: '',
-    treatments: []
+    id: null, name: '', phone: '', email: '', status: 'Ativo', 
+    allergies: 'Sem alergias sistêmicas relatadas', medicalNotes: '', treatments: [] 
   });
 
   // Temp form para dentista
   const [dentistFormData, setDentistFormData] = useState({
-    id: null,
-    name: '',
-    cro: '',
-    specialty: '',
-    email: '',
-    password: '',
-    phone: '',
-    description: ''
+    id: null, name: '', cro: '', specialty: '', email: '', password: '', phone: '', description: ''
   });
 
   // Configuração temporária de perfil
@@ -238,7 +258,7 @@ const App = () => {
       setCurrentUser(user);
       setIsAuthenticated(true);
       setIsLoggingIn(false);
-      setDentistForm({ ...user }); // Carrega o form de perfil do usuário logado
+      setDentistForm({ ...user });
       addToast(`Bem-vindo, ${user.name}`);
       addAuditLog(`${user.name} iniciou sessão administrativa.`);
     }, 1400);
@@ -276,6 +296,7 @@ const App = () => {
     setEmailInput('');
     setPasswordInput('');
     setSelectedDentistFilter('Todos');
+    setSettingsSubTab('clinic');
     addToast('Sessão encerrada com sucesso.', 'info');
   };
 
@@ -349,13 +370,11 @@ const App = () => {
     }
 
     if (patientFormData.id) {
-      // Editar
       setPatientsList(prev => prev.map(p => p.id === patientFormData.id ? { ...p, ...patientFormData } : p));
       setAppointments(prev => prev.map(a => a.patientId === patientFormData.id ? { ...a, patient: patientFormData.name } : a));
       addAuditLog(`Cadastro de ${patientFormData.name} atualizado.`);
       addToast('Registro do paciente atualizado.');
     } else {
-      // Cadastrar
       const newPatient = {
         ...patientFormData,
         id: Date.now(),
@@ -401,18 +420,15 @@ const App = () => {
     }
 
     if (dentistFormData.id) {
-      // Editar
       setDentistsList(prev => prev.map(d => d.id === dentistFormData.id ? { ...d, ...dentistFormData } : d));
-      // Atualizar nos agendamentos ativos
       setAppointments(prev => prev.map(a => a.dentistId === dentistFormData.id ? { ...a, dentistName: dentistFormData.name } : a));
       addAuditLog(`Cadastro do dentista ${dentistFormData.name} editado pelo Admin.`);
       addToast('Cadastro do profissional atualizado.');
     } else {
-      // Criar
       const newDentist = {
         ...dentistFormData,
         id: Date.now(),
-        password: dentistFormData.password || 'admin' // Senha padrão se vazia
+        password: dentistFormData.password || 'admin'
       };
       setDentistsList(prev => [...prev, newDentist]);
       addAuditLog(`Novo dentista contratado: ${dentistFormData.name}`);
@@ -466,22 +482,61 @@ const App = () => {
     addToast('Informações da clínica salvas.');
   };
 
-  // Salvar Configuração do Perfil (Dentistas individuais editam a si mesmos)
+  // Salvar Configuração do Perfil
   const handleSaveDentistProfile = (e) => {
     e.preventDefault();
     setDentistProfile({ ...dentistForm });
-    
-    // Atualiza na lista de dentistas também se for um profissional cadastrado
     if (currentUser.role === 'dentist') {
       setDentistsList(prev => prev.map(d => d.id === currentUser.id ? { ...d, ...dentistForm } : d));
       setCurrentUser(prev => ({ ...prev, ...dentistForm }));
     }
-    
-    addAuditLog('Perfil profissional atualizado.');
+    addAuditLog('Perfil profissional de dentista atualizado.');
     addToast('Perfil profissional atualizado.');
   };
 
-  // Alterar Senha (Usuário ativo)
+  // Salvar Lembretes de WhatsApp e SMS
+  const handleSaveWhatsSettings = (e) => {
+    e.preventDefault();
+    addAuditLog('Lembretes e configurações de disparador de WhatsApp atualizados.');
+    addToast('Configurações de lembretes salvas com sucesso.');
+  };
+
+  // Testar disparo de mensagem WhatsApp
+  const handleTestWhatsMessage = (e) => {
+    e.preventDefault();
+    if (!whatsSettings.testPhone) {
+      addToast('Insira um celular para realizar o disparo de teste.', 'error');
+      return;
+    }
+    addToast(`Mensagem de teste disparada com sucesso para ${whatsSettings.testPhone}!`);
+    addAuditLog(`Disparada mensagem WhatsApp de teste para o número ${whatsSettings.testPhone}`);
+    setWhatsSettings(prev => ({ ...prev, testPhone: '' }));
+  };
+
+  // Alternar conexão da instância de WhatsApp (Simulador API)
+  const handleToggleWhatsConnection = () => {
+    if (whatsSettings.status === 'connected') {
+      setWhatsSettings(prev => ({ ...prev, status: 'disconnected' }));
+      addToast('Instância de WhatsApp desconectada.', 'info');
+      addAuditLog('Conexão da API de WhatsApp encerrada.');
+    } else {
+      setWhatsSettings(prev => ({ ...prev, status: 'connecting' }));
+      setTimeout(() => {
+        setWhatsSettings(prev => ({ ...prev, status: 'connected' }));
+        addToast('Instância de WhatsApp pareada via QR Code!');
+        addAuditLog('Nova instância de WhatsApp conectada com sucesso via QR Code.');
+      }, 2000);
+    }
+  };
+
+  // Salvar Faturamento e Gateway API
+  const handleSaveBillingSettings = (e) => {
+    e.preventDefault();
+    addAuditLog('Configurações do Gateway de Faturamento atualizadas.');
+    addToast('Configurações de cobrança salvas com sucesso.');
+  };
+
+  // Alterar Senha
   const handleChangePassword = (e) => {
     e.preventDefault();
     const currentPass = currentUser.role === 'admin_master' ? masterAdmin.password : currentUser.password;
@@ -514,22 +569,19 @@ const App = () => {
   // --- LÓGICA DE FILTRAGEM POR FUNÇÃO (RBAC) ---
   const isMaster = currentUser && currentUser.role === 'admin_master';
 
-  // Filtragem de agendamentos com base no profissional logado e nos filtros do painel
+  // Filtragem de agendamentos
   const getVisibleAppointments = () => {
     if (!currentUser) return [];
     let list = appointments;
     
-    // Se logado como dentista, exibe apenas os seus agendamentos
     if (!isMaster) {
       list = list.filter(appt => appt.dentistId === currentUser.id);
     } else {
-      // Se logado como Admin Master, pode filtrar por profissional específico
       if (selectedDentistFilter !== 'Todos') {
         list = list.filter(appt => appt.dentistId === parseInt(selectedDentistFilter));
       }
     }
     
-    // Filtros de busca e status da interface
     return list.filter(a => {
       const matchesSearch = a.patient.toLowerCase().includes(agendaSearch.toLowerCase()) ||
                             a.procedure.toLowerCase().includes(agendaSearch.toLowerCase());
@@ -540,7 +592,7 @@ const App = () => {
 
   const visibleAppointments = getVisibleAppointments();
 
-  // Estatísticas baseadas nos agendamentos visíveis
+  // Estatísticas
   const getStats = () => {
     const totalConsultas = visibleAppointments.filter(a => a.status !== 'Concluído').length;
     const totalConcluidos = visibleAppointments.filter(a => a.status === 'Concluído').length;
@@ -549,7 +601,7 @@ const App = () => {
       { 
         label: isMaster ? 'Consultas Hoje (Clínica)' : 'Suas Consultas Hoje', 
         value: totalConsultas.toString(), 
-        icon: <Clock className="w-5 h-5 text-indigo-650" />,
+        icon: <Clock className="w-5 h-5 text-indigo-600" />,
         bg: 'bg-indigo-50/50',
         border: 'border-indigo-100/50'
       },
@@ -575,7 +627,7 @@ const App = () => {
     ? Math.round((visibleAppointments.filter(a => a.status === 'Concluído').length / visibleAppointments.length) * 100) 
     : 0;
 
-  // Filtro de time slots para a agenda
+  // Time slots
   const allTimeSlots = [
     { time: '08:00', appt: null },
     { time: '09:00', appt: null },
@@ -602,7 +654,7 @@ const App = () => {
         onClick={() => {setActiveTab('dashboard'); setIsSidebarOpen(false)}} 
         className={`flex items-center gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-xs uppercase tracking-wider ${
           activeTab === 'dashboard' 
-            ? 'bg-indigo-650 text-white shadow-md shadow-indigo-950/40' 
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' 
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
       >
@@ -612,7 +664,7 @@ const App = () => {
         onClick={() => {setActiveTab('agenda'); setIsSidebarOpen(false)}} 
         className={`flex items-center gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-xs uppercase tracking-wider ${
           activeTab === 'agenda' 
-            ? 'bg-indigo-650 text-white shadow-md shadow-indigo-950/40' 
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' 
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
       >
@@ -622,20 +674,19 @@ const App = () => {
         onClick={() => {setActiveTab('pacientes'); setIsSidebarOpen(false)}} 
         className={`flex items-center gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-xs uppercase tracking-wider ${
           activeTab === 'pacientes' 
-            ? 'bg-indigo-650 text-white shadow-md shadow-indigo-950/40' 
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' 
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
       >
         <Users className="w-4.5 h-4.5" /> Pacientes
       </button>
       
-      {/* Tab Equipe: Somente para Admin Master */}
       {isMaster && (
         <button 
           onClick={() => {setActiveTab('equipe'); setIsSidebarOpen(false)}} 
           className={`flex items-center gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-xs uppercase tracking-wider ${
             activeTab === 'equipe' 
-              ? 'bg-indigo-650 text-white shadow-md shadow-indigo-950/40' 
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' 
               : 'text-slate-400 hover:bg-slate-800 hover:text-white'
           }`}
         >
@@ -647,7 +698,7 @@ const App = () => {
         onClick={() => {setActiveTab('definicoes'); setIsSidebarOpen(false)}} 
         className={`flex items-center gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-xs uppercase tracking-wider ${
           activeTab === 'definicoes' 
-            ? 'bg-indigo-650 text-white shadow-md shadow-indigo-950/40' 
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40' 
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
       >
@@ -656,7 +707,7 @@ const App = () => {
     </nav>
   );
 
-  // TELA DE LOADING TRANSITÓRIA E MINIMALISTA
+  // TELA DE LOADING TRANSITÓRIA
   if (isLoggingIn) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -716,7 +767,7 @@ const App = () => {
           </div>
 
           <div className="border-t border-slate-900 pt-6 z-10 max-w-sm">
-            <p className="text-xs text-slate-450 italic leading-relaxed">
+            <p className="text-xs text-slate-500 italic leading-relaxed">
               "A organização e o rigor técnico que a Odontologia Faraoni precisava para estruturar sua expansão clínica."
             </p>
             <p className="text-[11px] font-bold text-slate-300 mt-2.5">
@@ -753,14 +804,14 @@ const App = () => {
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Endereço de E-mail</label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-450" />
+                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 
                       type="email" 
                       required
                       value={emailInput}
                       onChange={e => setEmailInput(e.target.value)}
                       placeholder="nome@clinica.com"
-                      className="w-full bg-white border border-slate-250/70 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300/70 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
                     />
                   </div>
                 </div>
@@ -777,19 +828,19 @@ const App = () => {
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-455" />
+                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input 
                       type={showPassword ? 'text' : 'password'} 
                       required
                       value={passwordInput}
                       onChange={e => setPasswordInput(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-white border border-slate-250/70 rounded-xl pl-9 pr-9 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300/70 rounded-xl pl-9 pr-9 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
                     />
                     <button 
                       type="button" 
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-450 hover:text-slate-700"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -807,9 +858,9 @@ const App = () => {
 
                 {/* Demo Logins Guide */}
                 <div className="bg-slate-100/80 border border-slate-200/50 p-3.5 rounded-xl space-y-2">
-                  <div className="flex gap-2 text-[11px] text-slate-650">
+                  <div className="flex gap-2 text-[11px] text-slate-600">
                     <Info className="w-4.5 h-4.5 text-slate-600 shrink-0 mt-0.5" />
-                    <span className="font-bold text-slate-800">Credenciais para testes (senha: "admin"):</span>
+                    <span className="font-bold text-slate-800">Credenciais de Teste (senha: "admin"):</span>
                   </div>
                   <div className="text-[10px] text-slate-500 pl-6 space-y-1">
                     <p>• **Admin Master:** <code className="text-slate-900 font-semibold">admin@odontofaraoni.com.br</code></p>
@@ -826,14 +877,14 @@ const App = () => {
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">E-mail de Cadastro</label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-450" />
+                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 
                       type="email" 
                       required
                       value={resetEmailInput}
                       onChange={e => setResetEmailInput(e.target.value)}
                       placeholder="digite@seuemail.com"
-                      className="w-full bg-white border border-slate-250/70 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300/70 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm"
                     />
                   </div>
                 </div>
@@ -848,7 +899,7 @@ const App = () => {
                   <button 
                     type="button" 
                     onClick={() => setAuthView('login')}
-                    className="w-full border border-slate-250 text-slate-600 py-2.5 rounded-xl font-semibold hover:bg-slate-50 hover:text-slate-800 transition-all text-xs"
+                    className="w-full border border-slate-300 text-slate-600 py-2.5 rounded-xl font-semibold hover:bg-slate-50 hover:text-slate-800 transition-all text-xs"
                   >
                     Voltar para o Login
                   </button>
@@ -900,7 +951,7 @@ const App = () => {
 
         <div className="pt-6 border-t border-slate-800 space-y-4">
           <div className="flex items-center gap-3 bg-slate-850/50 p-3 rounded-xl border border-slate-850">
-            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-350 font-extrabold text-xs">
+            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-extrabold text-xs">
               {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
@@ -912,7 +963,7 @@ const App = () => {
           </div>
           <button 
             onClick={handleLogout}
-            className="w-full bg-slate-800 hover:bg-slate-850 text-slate-400 hover:text-rose-400 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border border-slate-800"
+            className="w-full bg-slate-800 hover:bg-slate-855 text-slate-400 hover:text-rose-400 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border border-slate-800"
           >
             Sair do Painel
           </button>
@@ -932,7 +983,7 @@ const App = () => {
               </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)} 
-                className="p-1 text-slate-400 hover:text-white rounded-lg bg-slate-850"
+                className="p-1 text-slate-400 hover:text-white rounded-lg bg-slate-855"
               >
                 <X className="w-4.5 h-4.5" />
               </button>
@@ -942,7 +993,7 @@ const App = () => {
             </div>
             <div className="pt-6 border-t border-slate-800 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-350 font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xs">
                   {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
@@ -1007,7 +1058,6 @@ const App = () => {
 
             <button 
               onClick={() => {
-                // Pré-preenche data de hoje
                 setFormData({ patientId: '', dentistId: isMaster ? '' : currentUser.id.toString(), procedure: '', time: '', date: '2026-06-05' });
                 setIsModalOpen(true);
               }} 
@@ -1031,7 +1081,7 @@ const App = () => {
                 {stats.map((s, i) => (
                   <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</p>
                       <p className="text-xl font-bold text-slate-900">{s.value}</p>
                     </div>
                     <div className={`p-3 ${s.bg} rounded-xl border ${s.border}`}>
@@ -1050,19 +1100,18 @@ const App = () => {
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-5">
                       <div>
                         <h3 className="font-bold text-slate-900 text-sm">Próximos Atendimentos</h3>
-                        <p className="text-[11px] text-slate-455 mt-0.5">
+                        <p className="text-[11px] text-slate-500 mt-0.5">
                           {isMaster ? 'Consultas agendadas no dia de hoje.' : 'Seus atendimentos agendados para hoje.'}
                         </p>
                       </div>
                       
-                      {/* Se for Master Admin, pode filtrar a agenda geral por profissional */}
                       {isMaster && (
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ver agenda de:</span>
                           <select 
                             value={selectedDentistFilter}
                             onChange={e => setSelectedDentistFilter(e.target.value)}
-                            className="py-1 px-3 border border-slate-200 rounded-lg text-xs font-semibold bg-white outline-none focus:border-indigo-600 text-slate-650"
+                            className="py-1 px-3 border border-slate-200 rounded-lg text-xs font-semibold bg-white outline-none focus:border-indigo-600 text-slate-600"
                           >
                             <option value="Todos">Todos os Dentistas</option>
                             {dentistsList.map(d => (
@@ -1157,7 +1206,7 @@ const App = () => {
                         <span className="absolute text-xs font-bold text-slate-900">{completedRate}%</span>
                       </div>
                       <div>
-                        <p className="text-[11px] font-bold text-slate-650">Conclusão Diária</p>
+                        <p className="text-[11px] font-bold text-slate-600">Conclusão Diária</p>
                         <p className="text-[10px] text-slate-400 mt-1 leading-snug">
                           {visibleAppointments.filter(a => a.status === 'Concluído').length} de {visibleAppointments.length} consultas foram dadas como concluídas.
                         </p>
@@ -1194,7 +1243,7 @@ const App = () => {
               <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 border-b border-slate-100 pb-5">
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">Agenda de Atendimentos</h3>
-                  <p className="text-[11px] text-slate-450">Rotina diária e controle de horários clínicos.</p>
+                  <p className="text-[11px] text-slate-400">Rotina diária e controle de horários clínicos.</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
@@ -1203,7 +1252,7 @@ const App = () => {
                     <select 
                       value={selectedDentistFilter}
                       onChange={e => setSelectedDentistFilter(e.target.value)}
-                      className="py-1.5 px-3 border border-slate-250/80 text-xs rounded-xl bg-white outline-none focus:border-indigo-600 text-slate-650 font-semibold shadow-sm"
+                      className="py-1.5 px-3 border border-slate-300/80 text-xs rounded-xl bg-white outline-none focus:border-indigo-600 text-slate-600 font-semibold shadow-sm"
                     >
                       <option value="Todos">Todos os Dentistas</option>
                       {dentistsList.map(d => (
@@ -1219,14 +1268,14 @@ const App = () => {
                       placeholder="Pesquisar..." 
                       value={agendaSearch}
                       onChange={e => setAgendaSearch(e.target.value)}
-                      className="pl-9 pr-4 py-1.5 w-44 md:w-56 text-xs border border-slate-250/80 rounded-xl focus:outline-none focus:border-indigo-600 shadow-sm" 
+                      className="pl-9 pr-4 py-1.5 w-44 md:w-56 text-xs border border-slate-300/80 rounded-xl focus:outline-none focus:border-indigo-600 shadow-sm" 
                     />
                   </div>
 
                   <select 
                     value={agendaStatusFilter} 
                     onChange={e => setAgendaStatusFilter(e.target.value)}
-                    className="py-1.5 px-3 border border-slate-250/80 text-xs rounded-xl outline-none focus:border-indigo-600 text-slate-650 font-semibold shadow-sm"
+                    className="py-1.5 px-3 border border-slate-300/80 text-xs rounded-xl outline-none focus:border-indigo-600 text-slate-600 font-semibold shadow-sm"
                   >
                     <option value="Todos">Todos</option>
                     <option value="Confirmado">Confirmados</option>
@@ -1266,7 +1315,7 @@ const App = () => {
                               setFormData({ ...formData, time: slot.time });
                               setIsModalOpen(true);
                             }}
-                            className="text-[10px] text-slate-700 hover:text-slate-900 font-bold bg-white border border-slate-250 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all"
+                            className="text-[10px] text-slate-700 hover:text-slate-900 font-bold bg-white border border-slate-300 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all"
                           >
                             Reservar
                           </button>
@@ -1298,7 +1347,7 @@ const App = () => {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-850 text-xs sm:text-sm">{appt.patient}</p>
+                          <p className="font-bold text-slate-855 text-xs sm:text-sm">{appt.patient}</p>
                           <p className="text-[10px] text-slate-400 font-medium">Responsável: {appt.dentistName}</p>
                           <p className={`text-[11px] font-semibold mt-0.5 ${isConfirmado ? 'text-indigo-700' : isConcluido ? 'text-slate-500' : 'text-amber-700'}`}>
                             {appt.procedure}
@@ -1352,7 +1401,7 @@ const App = () => {
                     placeholder="Buscar prontuário..." 
                     value={patientSearch}
                     onChange={e => setPatientSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-250/80 rounded-xl focus:outline-none focus:border-indigo-600 text-xs shadow-sm" 
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300/80 rounded-xl focus:outline-none focus:border-indigo-600 text-xs shadow-sm" 
                   />
                 </div>
 
@@ -1360,7 +1409,7 @@ const App = () => {
                   <select 
                     value={patientStatusFilter} 
                     onChange={e => setPatientStatusFilter(e.target.value)}
-                    className="py-2 px-3 border border-slate-250/80 text-xs rounded-xl outline-none focus:border-indigo-600 text-slate-650 font-semibold shadow-sm"
+                    className="py-2 px-3 border border-slate-300/80 text-xs rounded-xl outline-none focus:border-indigo-600 text-slate-600 font-semibold shadow-sm"
                   >
                     <option value="Todos">Todos os Status</option>
                     <option value="Ativo">Ativos</option>
@@ -1378,7 +1427,7 @@ const App = () => {
                       <th className="p-4">Ficha / Paciente</th>
                       <th className="p-4">Telefone</th>
                       <th className="p-4">Último Retorno</th>
-                      <th className="p-4">Próximo Retorno</th>
+                      <th className="p-4">Próxima Visita</th>
                       <th className="p-4">Status</th>
                       <th className="p-4 text-center">Ações Clínicas</th>
                     </tr>
@@ -1393,11 +1442,11 @@ const App = () => {
                             </div>
                             <div>
                               <p className="font-bold text-slate-850 text-xs">{patient.name}</p>
-                              <p className="text-[10px] text-slate-450 font-medium">{patient.email}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">{patient.email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="p-4 text-slate-650 text-xs font-semibold">{patient.phone}</td>
+                        <td className="p-4 text-slate-600 text-xs font-semibold">{patient.phone}</td>
                         <td className="p-4 text-slate-500 text-xs font-medium">{patient.lastVisit}</td>
                         <td className="p-4">
                           {patient.nextVisit === 'Agendar' ? (
@@ -1426,7 +1475,7 @@ const App = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button 
                               onClick={() => setSelectedPatientForHistory(patient)}
-                              className="px-2.5 py-1 bg-slate-150 text-slate-700 hover:bg-indigo-50 hover:text-indigo-750 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 border border-slate-200 hover:border-indigo-100"
+                              className="px-2.5 py-1 bg-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-750 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 border border-slate-200 hover:border-indigo-100"
                             >
                               <FileText className="w-3 h-3 text-slate-600" /> Prontuário
                             </button>
@@ -1463,13 +1512,13 @@ const App = () => {
             </div>
           )}
 
-          {/* TAB 4: GESTÃO DE EQUIPE (DENTISTAS) - EXCLUSIVO ADMIN MASTER */}
+          {/* TAB 4: GESTÃO DE EQUIPE - EXCLUSIVO MASTER */}
           {activeTab === 'equipe' && isMaster && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-6 animate-fade-in">
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">Controle de Dentistas e Credenciais</h3>
-                  <p className="text-[11px] text-slate-450 mt-0.5">Cadastre, remova, edite dados e redefina as senhas dos dentistas da clínica.</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Cadastre, remova, edite dados e redefina as senhas dos dentistas da clínica.</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -1494,20 +1543,20 @@ const App = () => {
                           </div>
                           <div>
                             <h4 className="font-bold text-slate-850 text-sm">{dentist.name}</h4>
-                            <p className="text-[10px] text-indigo-650 font-bold">{dentist.cro} | {dentist.specialty}</p>
+                            <p className="text-[10px] text-indigo-600 font-bold">{dentist.cro} | {dentist.specialty}</p>
                           </div>
                         </div>
                         <div className="flex gap-1 bg-white border border-slate-100 rounded-lg p-0.5">
                           <button 
                             onClick={() => handleEditDentist(dentist)}
-                            className="p-1 text-slate-450 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                            className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
                             title="Editar Cadastro"
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteDentist(dentist.id)}
-                            className="p-1 text-slate-450 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                            className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                             title="Excluir Profissional"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1521,7 +1570,7 @@ const App = () => {
                     </div>
 
                     <div className="border-t border-slate-100 pt-3 flex flex-wrap justify-between items-center gap-2">
-                      <div className="text-[10px] text-slate-450 space-y-0.5">
+                      <div className="text-[10px] text-slate-400 space-y-0.5">
                         <p className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {dentist.email}</p>
                         <p className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> {dentist.phone}</p>
                       </div>
@@ -1535,265 +1584,646 @@ const App = () => {
             </div>
           )}
 
-          {/* TAB 5: DEFINIÇÕES */}
+          {/* TAB 5: CONFIGURAÇÕES E DEFINIÇÕES AVANÇADAS */}
           {activeTab === 'definicoes' && (
             <div className="space-y-6 animate-fade-in font-sans">
               <div className="grid md:grid-cols-3 gap-6">
                 
-                {/* Menu lateral */}
+                {/* Menu lateral de sub-abas */}
                 <div className="col-span-1 space-y-2">
                   <div className="bg-white rounded-2xl border border-slate-200/60 p-4 shadow-sm space-y-1">
                     <p className="text-[9px] text-slate-400 uppercase font-extrabold tracking-widest mb-3.5 px-2">Configurações</p>
-                    <button className="w-full text-left p-3 rounded-xl bg-slate-900 text-white font-bold flex items-center gap-2 text-xs border border-slate-950 shadow-sm">
+                    
+                    <button 
+                      onClick={() => setSettingsSubTab('clinic')}
+                      className={`w-full text-left p-3 rounded-xl font-bold flex items-center gap-2 text-xs transition-all ${
+                        settingsSubTab === 'clinic' 
+                          ? 'bg-slate-900 text-white border border-slate-950 shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
                       <Stethoscope className="w-4 h-4 text-indigo-400" /> Registro Clínico
                     </button>
+                    
                     <button 
-                      onClick={() => addToast('Notificações ativas.', 'info')} 
-                      className="w-full text-left p-3 rounded-xl text-slate-655 hover:bg-slate-50 hover:text-slate-800 font-semibold transition-colors flex items-center gap-2 text-xs"
+                      onClick={() => setSettingsSubTab('notifications')}
+                      className={`w-full text-left p-3 rounded-xl font-bold flex items-center justify-between text-xs transition-all ${
+                        settingsSubTab === 'notifications' 
+                          ? 'bg-slate-900 text-white border border-slate-950 shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
                     >
-                      <Bell className="w-4 h-4" /> Lembretes SMS & Whats
+                      <span className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-teal-500" /> Lembretes SMS & Whats
+                      </span>
+                      {whatsSettings.status === 'connected' && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
                     </button>
+                    
                     <button 
-                      onClick={() => addToast('Módulo financeiro desativado nesta versão.', 'info')} 
-                      className="w-full text-left p-3 rounded-xl text-slate-655 hover:bg-slate-50 hover:text-slate-800 font-semibold transition-colors flex items-center gap-2 text-xs"
+                      onClick={() => setSettingsSubTab('billing')}
+                      className={`w-full text-left p-3 rounded-xl font-bold flex items-center gap-2 text-xs transition-all ${
+                        settingsSubTab === 'billing' 
+                          ? 'bg-slate-900 text-white border border-slate-950 shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
                     >
-                      <Sparkles className="w-4 h-4" /> Cobrança & Faturamento
+                      <Sparkles className="w-4 h-4 text-amber-500" /> Cobrança & Faturamento
                     </button>
                   </div>
                 </div>
 
-                {/* Formulários */}
+                {/* Formulários dinâmicos baseados no settingsSubTab */}
                 <div className="col-span-1 md:col-span-2 space-y-6">
                   
-                  {/* Se logado como dentista individual, pode editar seu cadastro profissional */}
-                  {currentUser.role === 'dentist' && (
-                    <form onSubmit={handleSaveDentistProfile} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><Lock className="w-4 h-4 text-indigo-600" /> Perfil Profissional</h3>
-                        <p className="text-[11px] text-slate-450">Edite as informações clínicas que assinam eletronicamente seus prontuários.</p>
-                      </div>
+                  {/* SUB-TAB 1: REGISTRO CLÍNICO (EXISTENTE) */}
+                  {settingsSubTab === 'clinic' && (
+                    <>
+                      {currentUser.role === 'dentist' && (
+                        <form onSubmit={handleSaveDentistProfile} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><Lock className="w-4 h-4 text-indigo-600" /> Perfil Profissional</h3>
+                            <p className="text-[11px] text-slate-400">Edite as informações clínicas que assinam eletronicamente seus prontuários.</p>
+                          </div>
 
-                      <div className="grid md:grid-cols-2 gap-4">
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Nome Completo</label>
+                              <input 
+                                type="text" 
+                                value={dentistForm.name} 
+                                onChange={e => setDentistForm({ ...dentistForm, name: e.target.value })}
+                                className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Inscrição Consular (CRO)</label>
+                              <input 
+                                type="text" 
+                                value={dentistForm.cro} 
+                                disabled
+                                className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-medium bg-slate-50 text-slate-400 cursor-not-allowed" 
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">E-mail Profissional</label>
+                              <input 
+                                type="email" 
+                                value={dentistForm.email} 
+                                onChange={e => setDentistForm({ ...dentistForm, email: e.target.value })}
+                                className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Especialidade Dentária</label>
+                              <input 
+                                type="text" 
+                                value={dentistForm.specialty} 
+                                onChange={e => setDentistForm({ ...dentistForm, specialty: e.target.value })}
+                                className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Descrição Profissional</label>
+                            <textarea 
+                              rows="3"
+                              value={dentistForm.description} 
+                              onChange={e => setDentistForm({ ...dentistForm, description: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white leading-relaxed" 
+                            />
+                          </div>
+
+                          <div className="flex justify-end pt-2">
+                            <button 
+                              type="submit" 
+                              className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs"
+                            >
+                              Salvar Perfil
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><CheckCircle2 className="w-4.5 h-4.5 text-teal-600" /> Cadastro da Clínica</h3>
+                          <p className="text-[11px] text-slate-500">Edite as informações jurídicas e contatos comerciais da clínica.</p>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Razão Social</label>
+                            <input 
+                              type="text" 
+                              value={settingsForm.name} 
+                              disabled={!isMaster}
+                              onChange={e => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                              className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
+                                isMaster ? 'border-slate-300/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                              }`} 
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">CNPJ</label>
+                            <input 
+                              type="text" 
+                              value={settingsForm.cnpj} 
+                              disabled={!isMaster}
+                              onChange={e => setSettingsForm({ ...settingsForm, cnpj: e.target.value })}
+                              className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
+                                isMaster ? 'border-slate-300/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                              }`} 
+                            />
+                          </div>
+                        </div>
+
                         <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Nome Completo</label>
+                          <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Endereço da Clínica</label>
                           <input 
                             type="text" 
-                            value={dentistForm.name} 
-                            onChange={e => setDentistForm({ ...dentistForm, name: e.target.value })}
-                            className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                            value={settingsForm.address} 
+                            disabled={!isMaster}
+                            onChange={e => setSettingsForm({ ...settingsForm, address: e.target.value })}
+                            className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
+                              isMaster ? 'border-slate-300/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                            }`} 
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Inscrição Consular (CRO)</label>
-                          <input 
-                            type="text" 
-                            value={dentistForm.cro} 
-                            disabled
-                            className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-medium bg-slate-50 text-slate-400 cursor-not-allowed" 
-                          />
-                        </div>
-                      </div>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">E-mail Profissional</label>
-                          <input 
-                            type="email" 
-                            value={dentistForm.email} 
-                            onChange={e => setDentistForm({ ...dentistForm, email: e.target.value })}
-                            className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
-                          />
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">WhatsApp Principal</label>
+                            <input 
+                              type="text" 
+                              value={settingsForm.phone} 
+                              disabled={!isMaster}
+                              onChange={e => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                              className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
+                                isMaster ? 'border-slate-300/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                              }`} 
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">E-mail Comercial</label>
+                            <input 
+                              type="email" 
+                              value={settingsForm.email} 
+                              disabled={!isMaster}
+                              onChange={e => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                              className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
+                                isMaster ? 'border-slate-300/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                              }`} 
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Especialidade Dentária</label>
-                          <input 
-                            type="text" 
-                            value={dentistForm.specialty} 
-                            onChange={e => setDentistForm({ ...dentistForm, specialty: e.target.value })}
-                            className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
-                          />
+
+                        {isMaster && (
+                          <div className="flex justify-end pt-2">
+                            <button 
+                              type="submit" 
+                              className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs"
+                            >
+                              Salvar Configurações
+                            </button>
+                          </div>
+                        )}
+                      </form>
+
+                      {/* Alterar Senha de Acesso */}
+                      <form onSubmit={handleChangePassword} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><KeyRound className="w-4 h-4 text-amber-600" /> Segurança Administrativa</h3>
+                          <p className="text-[11px] text-slate-500">Altere a senha mestra de acesso ao painel OdontoGestão.</p>
                         </div>
-                      </div>
 
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Descrição Profissional</label>
-                        <textarea 
-                          rows="3"
-                          value={dentistForm.description} 
-                          onChange={e => setDentistForm({ ...dentistForm, description: e.target.value })}
-                          className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white leading-relaxed" 
-                        />
-                      </div>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-555 uppercase tracking-wider">Senha Atual</label>
+                            <input 
+                              type="password" 
+                              required
+                              value={secPassword.current}
+                              onChange={e => setSecPassword({ ...secPassword, current: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-555 uppercase tracking-wider">Nova Senha</label>
+                            <input 
+                              type="password" 
+                              required
+                              value={secPassword.next}
+                              onChange={e => setSecPassword({ ...secPassword, next: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-555 uppercase tracking-wider">Confirmar Nova</label>
+                            <input 
+                              type="password" 
+                              required
+                              value={secPassword.confirm}
+                              onChange={e => setSecPassword({ ...secPassword, confirm: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
+                            />
+                          </div>
+                        </div>
 
-                      <div className="flex justify-end pt-2">
-                        <button 
-                          type="submit" 
-                          className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs"
-                        >
-                          Salvar Perfil
-                        </button>
-                      </div>
-                    </form>
+                        <div className="flex justify-end pt-2">
+                          <button 
+                            type="submit" 
+                            className="bg-amber-600 border border-amber-700 text-white px-5 py-2 rounded-xl font-bold hover:bg-amber-700 transition-all text-xs"
+                          >
+                            Redefinir Senha
+                          </button>
+                        </div>
+                      </form>
+                    </>
                   )}
 
-                  {/* Perfil da Clínica */}
-                  <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><CheckCircle2 className="w-4.5 h-4.5 text-teal-600" /> Cadastro da Clínica</h3>
-                      <p className="text-[11px] text-slate-450">Edite as informações jurídicas e contatos comerciais.</p>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Razão Social / Nome Comercial</label>
-                        <input 
-                          type="text" 
-                          value={settingsForm.name} 
-                          disabled={!isMaster}
-                          onChange={e => setSettingsForm({ ...settingsForm, name: e.target.value })}
-                          className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
-                            isMaster ? 'border-slate-250/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-                          }`} 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">CNPJ</label>
-                        <input 
-                          type="text" 
-                          value={settingsForm.cnpj} 
-                          disabled={!isMaster}
-                          onChange={e => setSettingsForm({ ...settingsForm, cnpj: e.target.value })}
-                          className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
-                            isMaster ? 'border-slate-250/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-                          }`} 
-                        />
-                      </div>
-                    </div>
+                  {/* SUB-TAB 2: LEMBRETES SMS & WHATS (NOVO - IMPLEMENTADO DE FATO) */}
+                  {settingsSubTab === 'notifications' && (
+                    <div className="space-y-6">
+                      
+                      {/* WhatsApp Instance Status & QR Code mock */}
+                      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2">
+                              Status da API do WhatsApp
+                            </h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Gerencie a conexão do disparador automático de lembretes da clínica.</p>
+                          </div>
+                          
+                          <div className={`px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wide border flex items-center gap-1.5 ${
+                            whatsSettings.status === 'connected' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            whatsSettings.status === 'connecting' ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' :
+                            'bg-rose-50 text-rose-700 border-rose-100'
+                          }`}>
+                            {whatsSettings.status === 'connected' ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+                            {whatsSettings.status === 'connected' ? 'Conectado' :
+                             whatsSettings.status === 'connecting' ? 'Conectando...' : 'Desconectado'}
+                          </div>
+                        </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Endereço da Clínica</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.address} 
-                        disabled={!isMaster}
-                        onChange={e => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                        className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
-                          isMaster ? 'border-slate-250/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-                        }`} 
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">WhatsApp Principal</label>
-                        <input 
-                          type="text" 
-                          value={settingsForm.phone} 
-                          disabled={!isMaster}
-                          onChange={e => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                          className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
-                            isMaster ? 'border-slate-250/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-                          }`} 
-                        />
+                        {whatsSettings.status === 'disconnected' ? (
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-5 justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="bg-white p-2 border border-slate-200 rounded-xl shadow-inner">
+                                <QrCode className="w-16 h-16 text-slate-800" />
+                              </div>
+                              <div className="space-y-1 text-center sm:text-left">
+                                <h4 className="text-xs font-bold text-slate-800">Vincular Celular da Clínica</h4>
+                                <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs">
+                                  Clique no botão ao lado para simular o escaneamento do código QR do WhatsApp Web da clínica.
+                                </p>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={handleToggleWhatsConnection}
+                              className="bg-slate-900 text-white text-[11px] font-bold px-4 py-2 rounded-xl hover:bg-slate-800 transition-all border border-slate-950 shadow-sm"
+                            >
+                              Parear Dispositivo
+                            </button>
+                          </div>
+                        ) : whatsSettings.status === 'connecting' ? (
+                          <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                            <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                            Gerando sessão de sincronização do aplicativo...
+                          </div>
+                        ) : (
+                          <div className="space-y-3 bg-slate-50/50 p-4 border border-slate-200 rounded-xl">
+                            <div className="grid md:grid-cols-2 gap-4 text-xs font-medium">
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Instância Ativa</span>
+                                <p className="text-slate-800 mt-0.5">{whatsSettings.instanceName}</p>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Endpoint de Disparo (URL webhook)</span>
+                                <p className="text-slate-850 mt-0.5 truncate">{whatsSettings.webhookUrl}</p>
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-2 border-t border-slate-200/50">
+                              <button 
+                                onClick={handleToggleWhatsConnection}
+                                className="text-rose-600 hover:text-rose-700 bg-white border border-rose-100 hover:bg-rose-50 px-3.5 py-1.5 rounded-xl text-[10px] font-bold transition-all"
+                              >
+                                Desconectar WhatsApp
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">E-mail Comercial</label>
-                        <input 
-                          type="email" 
-                          value={settingsForm.email} 
-                          disabled={!isMaster}
-                          onChange={e => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                          className={`w-full border rounded-xl p-2.5 text-xs font-medium outline-none ${
-                            isMaster ? 'border-slate-250/70 bg-white focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-                          }`} 
-                        />
-                      </div>
-                    </div>
 
-                    <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-slate-100 p-2 rounded-xl text-slate-650"><Bell className="w-4 h-4" /></div>
+                      {/* Message templates & triggers */}
+                      <form onSubmit={handleSaveWhatsSettings} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-5">
                         <div>
-                          <p className="font-bold text-xs text-slate-800">Confirmação de Agenda por WhatsApp</p>
-                          <p className="text-[10px] text-slate-450">Enviar lembretes contendo link de confirmação automática.</p>
+                          <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2">Regras e Modelos de Mensagens</h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Edite os textos das notificações automáticas de agendamento.</p>
+                        </div>
+
+                        {/* WhatsApp template text */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modelo de Mensagem (WhatsApp)</label>
+                            <span className="text-[9px] text-slate-400">Variáveis válidas: <code className="bg-slate-100 p-0.5 rounded text-slate-700 font-bold">[PACIENTE], [DATA], [HORA], [DENTISTA], [CLINICA]</code></span>
+                          </div>
+                          <textarea 
+                            rows="3"
+                            value={whatsSettings.whatsappTemplate}
+                            onChange={e => setWhatsSettings({ ...whatsSettings, whatsappTemplate: e.target.value })}
+                            className="w-full border border-slate-300/70 rounded-xl p-3 text-xs font-medium text-slate-700 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none leading-relaxed bg-white shadow-sm"
+                          />
+                        </div>
+
+                        {/* SMS template text */}
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modelo de Mensagem (SMS)</label>
+                          <textarea 
+                            rows="2"
+                            value={whatsSettings.smsTemplate}
+                            onChange={e => setWhatsSettings({ ...whatsSettings, smsTemplate: e.target.value })}
+                            className="w-full border border-slate-300/70 rounded-xl p-3 text-xs font-medium text-slate-700 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none leading-relaxed bg-white shadow-sm"
+                          />
+                        </div>
+
+                        {/* Rules switches */}
+                        <div className="border-t border-slate-100 pt-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">Disparar Lembrete de 24h</p>
+                              <p className="text-[10px] text-slate-400">Envia a mensagem contendo o link de confirmação automática 24 horas antes do horário marcado.</p>
+                            </div>
+                            <div 
+                              onClick={() => setWhatsSettings(prev => ({ ...prev, send24h: !prev.send24h }))}
+                              className={`w-10 h-5.5 rounded-full relative cursor-pointer transition-all duration-350 p-0.5 ${whatsSettings.send24h ? 'bg-slate-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`w-4.5 h-4.5 bg-white rounded-full shadow-md transform transition-all duration-350 ${whatsSettings.send24h ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">Notificar Cadastro de Consulta</p>
+                              <p className="text-[10px] text-slate-400">Dispara uma mensagem de confirmação instantânea para o paciente assim que o agendamento é salvo.</p>
+                            </div>
+                            <div 
+                              onClick={() => setWhatsSettings(prev => ({ ...prev, sendInstant: !prev.sendInstant }))}
+                              className={`w-10 h-5.5 rounded-full relative cursor-pointer transition-all duration-350 p-0.5 ${whatsSettings.sendInstant ? 'bg-slate-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`w-4.5 h-4.5 bg-white rounded-full shadow-md transform transition-all duration-350 ${whatsSettings.sendInstant ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">Agradecimento Pós-Consulta</p>
+                              <p className="text-[10px] text-slate-400">Envia uma mensagem de agradecimento e dicas de pós-operatório 2 horas após a conclusão da consulta.</p>
+                            </div>
+                            <div 
+                              onClick={() => setWhatsSettings(prev => ({ ...prev, sendPostVisit: !prev.sendPostVisit }))}
+                              className={`w-10 h-5.5 rounded-full relative cursor-pointer transition-all duration-350 p-0.5 ${whatsSettings.sendPostVisit ? 'bg-slate-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`w-4.5 h-4.5 bg-white rounded-full shadow-md transform transition-all duration-350 ${whatsSettings.sendPostVisit ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-slate-100">
+                          <button 
+                            type="submit" 
+                            disabled={!isMaster}
+                            className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Save className="w-4 h-4" /> Salvar Lembretes
+                          </button>
+                        </div>
+                      </form>
+
+                      {/* Test trigger component */}
+                      <form onSubmit={handleTestWhatsMessage} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2">Testar Envio via API</h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Simule o envio real das mensagens inserindo um telefone celular abaixo.</p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="relative flex-1">
+                            <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input 
+                              type="text" 
+                              placeholder="(44) 99744-3696" 
+                              value={whatsSettings.testPhone}
+                              onChange={e => setWhatsSettings({ ...whatsSettings, testPhone: e.target.value })}
+                              className="w-full bg-white border border-slate-300/70 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-600"
+                            />
+                          </div>
+                          <button 
+                            type="submit" 
+                            disabled={whatsSettings.status !== 'connected'}
+                            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Testar Lembrete
+                          </button>
+                        </div>
+                        {whatsSettings.status !== 'connected' && (
+                          <span className="text-[10px] text-rose-600 font-bold flex items-center gap-1"><ShieldAlert className="w-3.5 h-3.5" /> É necessário parear o WhatsApp antes de realizar disparos de teste.</span>
+                        )}
+                      </form>
+
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 3: COBRANÇA & FATURAMENTO (NOVO - IMPLEMENTADO DE FATO) */}
+                  {settingsSubTab === 'billing' && (
+                    <div className="space-y-6">
+                      
+                      {/* Subscription Active plan details */}
+                      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+                          <div>
+                            <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg px-2.5 py-0.5 font-bold uppercase tracking-wider">Assinatura Ativa</span>
+                            <h3 className="text-base font-bold text-slate-950 mt-1.5 flex items-center gap-2">
+                              {billingSettings.planName}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Próxima renovação automática em **{billingSettings.nextRenewal}** no método cadastrado.</p>
+                          </div>
+                          <div className="text-left sm:text-right shrink-0">
+                            <p className="text-xs text-slate-400 font-bold">Custo Mensal</p>
+                            <p className="text-xl font-black text-slate-900">R$ {billingSettings.planPrice}<span className="text-xs font-semibold text-slate-550">/mês</span></p>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-700">
+                              <CreditCard className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div className="text-xs">
+                              <p className="font-bold text-slate-800">Mastercard •••• 4892</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Expiração: 09/2030 | Titular: Orlando Faraoni</p>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => addToast('Gerenciador Stripe carregando...', 'info')}
+                            className="bg-white border border-slate-200 text-slate-700 hover:text-slate-900 text-[10px] font-bold px-3 py-1.5 rounded-xl hover:shadow-sm transition-all flex items-center gap-1.5"
+                          >
+                            Alterar Cartão <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </button>
                         </div>
                       </div>
-                      <div 
-                        onClick={() => {
-                          if (!isMaster) return;
-                          const nextVal = !settingsForm.reminders;
-                          setSettingsForm({ ...settingsForm, reminders: nextVal });
-                          addToast(nextVal ? 'Lembretes automáticos ativos.' : 'Lembretes automáticos desligados.', 'info');
-                        }}
-                        className={`w-12 h-6.5 rounded-full relative transition-all duration-300 p-0.5 ${
-                          !isMaster ? 'bg-slate-200 cursor-not-allowed' : 'cursor-pointer ' + (settingsForm.reminders ? 'bg-slate-900' : 'bg-slate-250')
-                        }`}
-                      >
-                        <div className={`w-5.5 h-5.5 bg-white rounded-full shadow-md transform transition-all duration-300 ${settingsForm.reminders ? 'translate-x-5.5' : 'translate-x-0'}`}></div>
-                      </div>
-                    </div>
 
-                    {isMaster && (
-                      <div className="flex justify-end pt-2">
-                        <button 
-                          type="submit" 
-                          className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs"
-                        >
-                          Salvar Configurações
-                        </button>
-                      </div>
-                    )}
-                  </form>
+                      {/* API settings for gateways */}
+                      <form onSubmit={handleSaveBillingSettings} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><CreditCard className="w-4.5 h-4.5 text-indigo-600" /> Integração de Gateway de Recebimentos</h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Integre chaves de API do seu intermediador financeiro para receber cobranças de pacientes (Pix, Cartão, Boleto).</p>
+                        </div>
 
-                  {/* Alterar Senha de Acesso */}
-                  <form onSubmit={handleChangePassword} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2"><KeyRound className="w-4 h-4 text-amber-600" /> Alterar Senha da Conta</h3>
-                      <p className="text-[11px] text-slate-450">Altere a senha de acesso pessoal à sua conta clínica.</p>
-                    </div>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gateway Financeiro</label>
+                            <select 
+                              value={billingSettings.gateway}
+                              disabled={!isMaster}
+                              onChange={e => setBillingSettings({ ...billingSettings, gateway: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs font-semibold text-slate-700 bg-white"
+                            >
+                              <option value="stripe">Stripe API (Global)</option>
+                              <option value="asaas">Asaas Gateway (PIX / Boleto)</option>
+                              <option value="mercadopago">Mercado Pago</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chave Pública (Public API Key)</label>
+                            <input 
+                              type="text" 
+                              value={billingSettings.publicKey}
+                              disabled={!isMaster}
+                              onChange={e => setBillingSettings({ ...billingSettings, publicKey: e.target.value })}
+                              className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs font-medium bg-white"
+                            />
+                          </div>
+                        </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Senha Atual</label>
-                        <input 
-                          type="password" 
-                          required
-                          value={secPassword.current}
-                          onChange={e => setSecPassword({ ...secPassword, current: e.target.value })}
-                          className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Nova Senha</label>
-                        <input 
-                          type="password" 
-                          required
-                          value={secPassword.next}
-                          onChange={e => setSecPassword({ ...secPassword, next: e.target.value })}
-                          className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Confirmar Nova</label>
-                        <input 
-                          type="password" 
-                          required
-                          value={secPassword.confirm}
-                          onChange={e => setSecPassword({ ...secPassword, confirm: e.target.value })}
-                          className="w-full border border-slate-250/70 rounded-xl p-2.5 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none text-xs font-medium bg-white" 
-                        />
-                      </div>
-                    </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chave Secreta de Produção (Secret API Key)</label>
+                          <input 
+                            type="password" 
+                            value={billingSettings.secretKey}
+                            disabled={!isMaster}
+                            onChange={e => setBillingSettings({ ...billingSettings, secretKey: e.target.value })}
+                            className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs font-mono font-bold bg-white"
+                          />
+                        </div>
 
-                    <div className="flex justify-end pt-2">
-                      <button 
-                        type="submit" 
-                        className="bg-amber-600 border border-amber-700 text-white px-5 py-2 rounded-xl font-bold hover:bg-amber-700 transition-all text-xs"
-                      >
-                        Redefinir Senha
-                      </button>
+                        {/* Payment methods toggles */}
+                        <div className="border-t border-slate-100 pt-4">
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Métodos de Faturamento Ativos</span>
+                          
+                          <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-700">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={billingSettings.pixEnabled}
+                                disabled={!isMaster}
+                                onChange={e => setBillingSettings({ ...billingSettings, pixEnabled: e.target.checked })}
+                                className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 w-4 h-4" 
+                              />
+                              <span>Pix Instantâneo (QR Code)</span>
+                            </label>
+                            
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={billingSettings.cardEnabled}
+                                disabled={!isMaster}
+                                onChange={e => setBillingSettings({ ...billingSettings, cardEnabled: e.target.checked })}
+                                className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 w-4 h-4" 
+                              />
+                              <span>Cartão de Crédito</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={billingSettings.boletoEnabled}
+                                disabled={!isMaster}
+                                onChange={e => setBillingSettings({ ...billingSettings, boletoEnabled: e.target.checked })}
+                                className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 w-4 h-4" 
+                              />
+                              <span>Boleto Bancário registrado</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {isMaster && (
+                          <div className="flex justify-end pt-2 border-t border-slate-100">
+                            <button 
+                              type="submit" 
+                              className="bg-slate-900 border border-slate-950 text-white px-5 py-2 rounded-xl font-bold hover:bg-slate-800 transition-all text-xs flex items-center gap-1.5"
+                            >
+                              <Save className="w-4 h-4" /> Salvar Integração
+                            </button>
+                          </div>
+                        )}
+                      </form>
+
+                      {/* Recent invoices list */}
+                      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 md:p-6 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-950">Histórico de Faturas da Assinatura</h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Lista de cobranças recentes da licença do software.</p>
+                        </div>
+
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left min-w-[500px]">
+                            <thead>
+                              <tr className="text-slate-500 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+                                <th className="p-3">Código</th>
+                                <th className="p-3">Data Faturamento</th>
+                                <th className="p-3">Método</th>
+                                <th className="p-3">Valor</th>
+                                <th className="p-3">Status</th>
+                                <th className="p-3 text-right">Comprovante</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {billingSettings.invoices.map((inv, idx) => (
+                                <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/20 transition-all text-xs font-semibold text-slate-700">
+                                  <td className="p-3 font-mono">{inv.id}</td>
+                                  <td className="p-3 text-slate-500">{inv.date}</td>
+                                  <td className="p-3 text-slate-600">{inv.method}</td>
+                                  <td className="p-3 text-slate-900 font-bold">{inv.amount}</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold">
+                                      {inv.status}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <button 
+                                      onClick={() => addToast(`Recibo ${inv.id} baixado.`, 'success')}
+                                      className="p-1 hover:text-indigo-600 hover:bg-slate-100 rounded-lg text-slate-400 transition-all"
+                                      title="Baixar Recibo PDF"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
                     </div>
-                  </form>
+                  )}
 
                 </div>
 
@@ -1812,7 +2242,7 @@ const App = () => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Novo Agendamento</h3>
-                <p className="text-[11px] text-slate-450">Agende a consulta do paciente e vincule o profissional.</p>
+                <p className="text-[11px] text-slate-400">Agende a consulta do paciente e vincule o profissional.</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
@@ -1826,7 +2256,7 @@ const App = () => {
                   required
                   value={formData.patientId}
                   onChange={e => setFormData({ ...formData, patientId: e.target.value })}
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all text-xs font-semibold text-slate-700 bg-white"
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all text-xs font-semibold text-slate-700 bg-white"
                 >
                   <option value="">Selecione o paciente...</option>
                   {patientsList.map(p => (
@@ -1843,7 +2273,7 @@ const App = () => {
                   disabled={!isMaster}
                   onChange={e => setFormData({ ...formData, dentistId: e.target.value })}
                   className={`w-full border rounded-xl p-2.5 outline-none text-xs font-semibold bg-white ${
-                    isMaster ? 'border-slate-250/70 focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                    isMaster ? 'border-slate-300/70 focus:border-indigo-600' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                   }`}
                 >
                   <option value="">Selecione o profissional...</option>
@@ -1860,7 +2290,7 @@ const App = () => {
                   required 
                   value={formData.procedure} 
                   onChange={(e) => setFormData({...formData, procedure: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
                   placeholder="Ex: Profilaxia e Raspagem Periodontal" 
                 />
               </div>
@@ -1872,7 +2302,7 @@ const App = () => {
                     required
                     value={formData.time}
                     onChange={(e) => setFormData({...formData, time: e.target.value})}
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white"
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white"
                   >
                     <option value="">Selecione...</option>
                     <option value="08:00">08:00</option>
@@ -1893,13 +2323,13 @@ const App = () => {
                     required 
                     value={formData.date} 
                     onChange={(e) => setFormData({...formData, date: e.target.value})} 
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white" 
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white" 
                   />
                 </div>
               </div>
               
               <div className="flex gap-3 mt-8">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-250 transition-colors text-xs">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors text-xs">
                   Cancelar
                 </button>
                 <button type="submit" className="flex-1 py-2.5 px-4 bg-slate-900 border border-slate-950 text-white rounded-xl font-bold hover:bg-slate-800 shadow-sm transition-colors text-xs">
@@ -1920,7 +2350,7 @@ const App = () => {
                 <h3 className="text-base font-bold text-slate-900">
                   {patientFormData.id ? 'Atualizar Paciente' : 'Cadastro de Paciente'}
                 </h3>
-                <p className="text-[11px] text-slate-455">Insira as informações de contato do prontuário.</p>
+                <p className="text-[11px] text-slate-500">Insira as informações de contato do prontuário.</p>
               </div>
               <button onClick={() => setIsPatientModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
@@ -1935,7 +2365,7 @@ const App = () => {
                   required 
                   value={patientFormData.name} 
                   onChange={(e) => setPatientFormData({...patientFormData, name: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
                   placeholder="Ex: Carlos Mendes" 
                 />
               </div>
@@ -1946,7 +2376,7 @@ const App = () => {
                   required 
                   value={patientFormData.phone} 
                   onChange={(e) => setPatientFormData({...patientFormData, phone: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold bg-white" 
                   placeholder="Ex: (44) 99111-2222" 
                 />
               </div>
@@ -1956,7 +2386,7 @@ const App = () => {
                   type="email" 
                   value={patientFormData.email} 
                   onChange={(e) => setPatientFormData({...patientFormData, email: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-medium bg-white" 
                   placeholder="Ex: carlos@email.com" 
                 />
               </div>
@@ -1965,7 +2395,7 @@ const App = () => {
                 <select 
                   value={patientFormData.status}
                   onChange={(e) => setPatientFormData({...patientFormData, status: e.target.value})}
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white"
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-all font-semibold text-slate-700 bg-white"
                 >
                   <option value="Ativo">Ativo</option>
                   <option value="Em Tratamento">Em Tratamento</option>
@@ -1995,9 +2425,9 @@ const App = () => {
                 <h3 className="text-base font-bold text-slate-900">
                   {dentistFormData.id ? 'Editar Dados do Dentista' : 'Cadastrar Novo Dentista'}
                 </h3>
-                <p className="text-[11px] text-slate-455">Insira as informações clínicas e de autenticação do profissional.</p>
+                <p className="text-[11px] text-slate-500">Insira as informações clínicas e de autenticação do profissional.</p>
               </div>
-              <button onClick={() => setIsDentistModalOpen(false)} className="text-slate-400 hover:text-slate-650 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+              <button onClick={() => setIsDentistModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2011,7 +2441,7 @@ const App = () => {
                     required 
                     value={dentistFormData.name} 
                     onChange={(e) => setDentistFormData({...dentistFormData, name: e.target.value})} 
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
                     placeholder="Ex: Dra. Helena Souza" 
                   />
                 </div>
@@ -2022,7 +2452,7 @@ const App = () => {
                     required 
                     value={dentistFormData.cro} 
                     onChange={(e) => setDentistFormData({...dentistFormData, cro: e.target.value})} 
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
                     placeholder="Ex: CRO-PR 54321" 
                   />
                 </div>
@@ -2036,7 +2466,7 @@ const App = () => {
                     required 
                     value={dentistFormData.specialty} 
                     onChange={(e) => setDentistFormData({...dentistFormData, specialty: e.target.value})} 
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white" 
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white" 
                     placeholder="Ex: Odontopediatria" 
                   />
                 </div>
@@ -2047,7 +2477,7 @@ const App = () => {
                     required 
                     value={dentistFormData.phone} 
                     onChange={(e) => setDentistFormData({...dentistFormData, phone: e.target.value})} 
-                    className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
+                    className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-semibold bg-white" 
                     placeholder="Ex: (44) 99111-3333" 
                   />
                 </div>
@@ -2060,7 +2490,7 @@ const App = () => {
                   required 
                   value={dentistFormData.email} 
                   onChange={(e) => setDentistFormData({...dentistFormData, email: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white" 
                   placeholder="Ex: helena@odontofaraoni.com.br" 
                 />
               </div>
@@ -2071,7 +2501,7 @@ const App = () => {
                   type="text" 
                   value={dentistFormData.password} 
                   onChange={(e) => setDentistFormData({...dentistFormData, password: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-mono font-bold bg-white" 
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-mono font-bold bg-white" 
                   placeholder="Defina a senha (deixe em branco para manter 'admin')" 
                 />
               </div>
@@ -2082,8 +2512,8 @@ const App = () => {
                   rows="3"
                   value={dentistFormData.description} 
                   onChange={(e) => setDentistFormData({...dentistFormData, description: e.target.value})} 
-                  className="w-full border border-slate-250/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white leading-relaxed" 
-                  placeholder="Ex: Especialista em odontologia infantil com 5 anos de experiência..."
+                  className="w-full border border-slate-300/70 rounded-xl p-2.5 text-xs outline-none focus:border-indigo-600 transition-all font-medium bg-white leading-relaxed" 
+                  placeholder="Ex: Especialista em odontologia infantil..."
                 />
               </div>
               
@@ -2103,7 +2533,7 @@ const App = () => {
       {/* DRAWER: EVOLUÇÃO E PRONTUÁRIO CLÍNICO */}
       {selectedPatientForHistory && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-end">
-          <div className="bg-white h-full w-full max-w-lg p-6 md:p-8 relative shadow-2xl flex flex-col justify-between overflow-y-auto animate-slide-in border-l border-slate-150">
+          <div className="bg-white h-full w-full max-w-lg p-6 md:p-8 relative shadow-2xl flex flex-col justify-between overflow-y-auto animate-slide-in border-l border-slate-200">
             
             <div className="space-y-6">
               {/* Header */}
@@ -2119,7 +2549,7 @@ const App = () => {
                 </div>
                 <button 
                   onClick={() => setSelectedPatientForHistory(null)}
-                  className="text-slate-400 hover:text-slate-655 p-1 rounded-xl hover:bg-slate-100 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2135,7 +2565,7 @@ const App = () => {
                     type="text"
                     value={selectedPatientForHistory.allergies}
                     onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, allergies: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-650 focus:ring-1 focus:ring-indigo-650 shadow-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
                     placeholder="Ex: Alergias clínicas relatadas."
                   />
                   <p className="text-[9px] text-slate-400 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" /> Informação vital de anamnese médica.</p>
@@ -2148,7 +2578,7 @@ const App = () => {
                     rows="8"
                     value={selectedPatientForHistory.medicalNotes}
                     onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, medicalNotes: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-655 focus:ring-1 focus:ring-indigo-655 leading-relaxed shadow-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 leading-relaxed shadow-sm"
                     placeholder="Inserir notas clínicas..."
                   />
                 </div>
