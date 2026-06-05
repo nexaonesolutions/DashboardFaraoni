@@ -569,6 +569,16 @@ const App = () => {
     setIsPrescriptionModalOpen(false);
   };
 
+  // Função para abrir o modal de emissão de documento
+  const handleOpenPrescriptionModal = () => {
+    setIsPrescriptionModalOpen(true);
+    setPrescriptionForm({
+      type: 'receita_simples',
+      template: 'personalizado',
+      content: ''
+    });
+  };
+
   // Salvar Configuração da Clínica
   const handleSaveSettings = (e) => {
     e.preventDefault();
