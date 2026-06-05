@@ -7,6 +7,23 @@ import {
   UserCheck, UserMinus, ShieldAlert, Wifi, WifiOff, QrCode, CreditCard, Download, ExternalLink
 } from 'lucide-react';
 
+const CLINICAL_TEMPLATES = {
+  receita_simples: {
+    personalizado: '',
+    analgesico: `RECEITUÁRIO SIMPLES\n\nUso Oral:\n1. Dipirona Sódica 500mg --------------------------- 1 frasco\n   Tomar 30 gotas de 6 em 6 horas em caso de dor.\n\n2. Nimesulida 100mg -------------------------------- 10 comprimidos\n   Tomar 1 comprimido de 12 em 12 horas por 3 dias para controle inflamatório.`,
+    antibiotico: `RECEITUÁRIO SIMPLES\n\nUso Oral:\n1. Amoxicilina 500mg ------------------------------- 21 cápsulas\n   Tomar 1 cápsula de 8 em 8 horas por 7 dias. (Controle de infecção bucal).`
+  },
+  receita_controlada: {
+    personalizado: '',
+    analgesico_forte: `RECEITUÁRIO DE CONTROLE ESPECIAL\n\nUso Oral:\n1. Codeína 30mg + Paracetamol 500mg ---------------- 12 comprimidos\n   Tomar 1 comprimido de 6 em 6 horas em caso de dor moderada a intensa.`
+  },
+  atestado: {
+    personalizado: '',
+    atestado_comparecimento: `ATESTADO DE COMPARECIMENTO\n\nAtesto, para os devidos fins de direito, que o(a) Sr(a). [PACIENTE] compareceu a esta clínica odontológica no dia de hoje, das [HORA_INICIO] às [HORA_FIM], para realização de tratamento odontológico.`,
+    atestado_repouso: `ATESTADO DE REPOUSO ODONTOLÓGICO\n\nAtesto, para os devidos fins, que o(a) Sr(a). [PACIENTE] esteve sob meus cuidados profissionais no dia de hoje. Em decorrência do procedimento cirúrgico odontológico realizado, necessita o(a) paciente de [DIAS] dia(s) de repouso absoluto a partir desta data.`
+  }
+};
+
 const App = () => {
   // Autenticação & Role-Based States
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -72,6 +89,17 @@ const App = () => {
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isDentistModalOpen, setIsDentistModalOpen] = useState(false);
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState(null);
+  const [activePatientTab, setActivePatientTab] = useState('notes'); // 'notes' | 'odontogram'
+  const [selectedTooth, setSelectedTooth] = useState(null); // ID do dente selecionado para edição (ex: 14)
+  const [toothEditState, setToothEditState] = useState({ status: 'saudavel', notes: '' });
+
+  // Modal de Emissão de Documentos
+  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    type: 'receita_simples', // 'receita_simples' | 'receita_controlada' | 'atestado'
+    template: 'personalizado',
+    content: ''
+  });
   
   // Sub-abas de Definições
   const [settingsSubTab, setSettingsSubTab] = useState('clinic'); // 'clinic' | 'notifications' | 'billing'
@@ -122,7 +150,11 @@ const App = () => {
       status: 'Ativo',
       allergies: 'Sem alergias sistêmicas relatadas',
       medicalNotes: 'Paciente compareceu para consulta periódica. Relata leve sensibilidade térmica no quadrante inferior esquerdo. Ao exame físico, detectou-se integridade em todas as restaurações. Realizada raspagem supra e subgengival acompanhada de profilaxia e aplicação tópica de flúor.',
-      treatments: ['Profilaxia Clínica', 'Raspagem Periodontal']
+      treatments: ['Profilaxia Clínica', 'Raspagem Periodontal'],
+      odontogram: {
+        14: { status: 'restauracao', notes: 'Restauração oclusal em resina fotopolimerizável realizada.' },
+        16: { status: 'canal', notes: 'Tratamento de canal do elemento concluído.' }
+      }
     },
     { 
       id: 2, 
@@ -134,7 +166,11 @@ const App = () => {
       status: 'Em Tratamento',
       allergies: 'Reação anafilática documentada com Penicilina G Potássica',
       medicalNotes: 'Realizado procedimento cirúrgico para instalação de implante de titânio (cone morse) no elemento 14. Torque de inserção obtido: 45 N.cm. Prescrito protocolo analgésico e anti-inflamatório (Amoxicilina contraindicada, optado por Clindamicina em caso de infecção secundária). Suturas posicionadas perfeitamente.',
-      treatments: ['Implante Dentário', 'Enxerto Ósseo Autógeno']
+      treatments: ['Implante Dentário', 'Enxerto Ósseo Autógeno'],
+      odontogram: {
+        14: { status: 'implante', notes: 'Implante Cone Morse instalado com torque de 45 N.cm.' },
+        36: { status: 'carie', notes: 'Indicação de lesão cariosa ativa identificada.' }
+      }
     },
     { 
       id: 3, 
@@ -146,7 +182,8 @@ const App = () => {
       status: 'Inativo',
       allergies: 'Sem alergias clínicas relatadas',
       medicalNotes: 'Apresenta indicação para tratamento endodôntico no elemento 24 devido a quadro de pulpite irreversível. Paciente informou necessidade de adiar a intervenção por motivos de viagem profissional. Prescrito controle analgésico de urgência.',
-      treatments: ['Tratamento de Canal (Elemento 24)']
+      treatments: ['Tratamento de Canal (Elemento 24)'],
+      odontogram: {}
     },
     { 
       id: 4, 
@@ -158,7 +195,8 @@ const App = () => {
       status: 'Ativo',
       allergies: 'Hipersensibilidade por contato com látex natural',
       medicalNotes: 'Finalizada cimentação adesiva de faceta estética cerâmica no elemento 11. Utilizado isolamento absoluto com lençol de borracha sintético (isento de látex). Ajuste oclusal fino e polimento de margens executados. Paciente aprovou integralmente o resultado estético.',
-      treatments: ['Lente de Contato Dental']
+      treatments: ['Lente de Contato Dental'],
+      odontogram: {}
     }
   ]);
 
@@ -196,7 +234,8 @@ const App = () => {
   // Temp form para paciente
   const [patientFormData, setPatientFormData] = useState({ 
     id: null, name: '', phone: '', email: '', status: 'Ativo', 
-    allergies: 'Sem alergias sistêmicas relatadas', medicalNotes: '', treatments: [] 
+    allergies: 'Sem alergias sistêmicas relatadas', medicalNotes: '', treatments: [],
+    odontogram: {}
   });
 
   // Temp form para dentista
@@ -463,15 +502,71 @@ const App = () => {
         return {
           ...p,
           allergies: selectedPatientForHistory.allergies,
-          medicalNotes: selectedPatientForHistory.medicalNotes
+          medicalNotes: selectedPatientForHistory.medicalNotes,
+          odontogram: selectedPatientForHistory.odontogram || {}
         };
       }
       return p;
     }));
 
-    addAuditLog(`Evolução clínica de ${selectedPatientForHistory.name} editada.`);
-    addToast('Evolução do prontuário gravada.');
+    addAuditLog(`Prontuário clínico de ${selectedPatientForHistory.name} atualizado.`);
+    addToast('Evolução do prontuário gravada.', 'success');
     setSelectedPatientForHistory(null);
+    setSelectedTooth(null);
+  };
+
+  // Funções do Gerador de Documentos
+  const handleTemplateChange = (templateName, typeName) => {
+    let rawText = CLINICAL_TEMPLATES[typeName]?.[templateName] || '';
+    if (selectedPatientForHistory) {
+      rawText = rawText.replace(/\[PACIENTE\]/g, selectedPatientForHistory.name);
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const timeStr2 = twoHoursLater.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      
+      rawText = rawText.replace(/\[HORA_INICIO\]/g, timeStr);
+      rawText = rawText.replace(/\[HORA_FIM\]/g, timeStr2);
+      rawText = rawText.replace(/\[DIAS\]/g, '1');
+    }
+    setPrescriptionForm(prev => ({
+      ...prev,
+      template: templateName,
+      content: rawText
+    }));
+  };
+
+  const handlePrintPrescription = () => {
+    if (!prescriptionForm.content.trim()) {
+      addToast('O conteúdo do documento não pode estar vazio.', 'error');
+      return;
+    }
+
+    const time = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const documentTypeName = 
+      prescriptionForm.type === 'receita_simples' ? 'Receita Simples' :
+      prescriptionForm.type === 'receita_controlada' ? 'Receita Controle Especial' : 'Atestado Médico';
+      
+    const emissionLog = `\n\n--- Documento Emitido em ${time} ---\nTipo: ${documentTypeName}\n${prescriptionForm.content}\n--------------------------------------`;
+    
+    // Save to the patient in state immediately
+    const updatedPatient = {
+      ...selectedPatientForHistory,
+      medicalNotes: selectedPatientForHistory.medicalNotes + emissionLog
+    };
+    setSelectedPatientForHistory(updatedPatient);
+
+    // Save to the patient in the main patients list
+    setPatientsList(prev => prev.map(p => p.id === selectedPatientForHistory.id ? { ...p, medicalNotes: p.medicalNotes + emissionLog } : p));
+
+    addAuditLog(`Emitido documento (${documentTypeName}) para ${selectedPatientForHistory.name}.`);
+    addToast('Documento registrado no prontuário.', 'success');
+
+    setTimeout(() => {
+      window.print();
+    }, 150);
+
+    setIsPrescriptionModalOpen(false);
   };
 
   // Salvar Configuração da Clínica
@@ -912,6 +1007,45 @@ const App = () => {
       </div>
     );
   }
+
+  // Helper para renderizar botão de dente do Odontograma
+  const renderToothButton = (num) => {
+    if (!selectedPatientForHistory) return null;
+    const tooth = selectedPatientForHistory.odontogram?.[num] || { status: 'saudavel', notes: '' };
+    const isSelected = selectedTooth === num;
+    
+    const statusConfig = {
+      saudavel: { bg: 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800', dot: 'bg-slate-200 border-slate-300' },
+      carie: { bg: 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-700', dot: 'bg-rose-500 border-rose-600 animate-pulse' },
+      restauracao: { bg: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500 border-indigo-600' },
+      canal: { bg: 'bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700', dot: 'bg-amber-500 border-amber-600' },
+      implante: { bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700', dot: 'bg-purple-500 border-purple-600' },
+      ausente: { bg: 'bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-400 border-dashed', dot: 'bg-transparent border-slate-300 border-dashed' }
+    };
+    
+    const config = statusConfig[tooth.status] || statusConfig.saudavel;
+
+    return (
+      <button
+        key={num}
+        type="button"
+        onClick={() => {
+          setSelectedTooth(num);
+          setToothEditState({ status: tooth.status, notes: tooth.notes || '' });
+        }}
+        className={`w-9 h-14 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all relative shrink-0 select-none ${config.bg} ${
+          isSelected ? 'ring-2 ring-indigo-600 border-transparent shadow-sm scale-105 z-10' : ''
+        }`}
+      >
+        <span className="text-[10px] font-bold">{num}</span>
+        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${config.dot}`}>
+          {tooth.status === 'implante' && <span className="text-[6px] text-white font-extrabold">I</span>}
+          {tooth.status === 'canal' && <span className="text-[6px] text-white font-extrabold">C</span>}
+          {tooth.status === 'carie' && <span className="text-[6px] text-white font-extrabold">!</span>}
+        </span>
+      </button>
+    );
+  };
 
   // TELA DO PAINEL PRINCIPAL (AUTENTICADO)
   return (
@@ -2528,74 +2662,362 @@ const App = () => {
                     <p className="text-[10px] text-slate-400 font-semibold">{selectedPatientForHistory.phone} | {selectedPatientForHistory.email}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setSelectedPatientForHistory(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 transition-colors"
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPrescriptionModal()}
+                    className="text-[10px] text-indigo-600 border border-indigo-200 hover:bg-indigo-50 font-bold px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 bg-white"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Emitir Doc
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSelectedPatientForHistory(null);
+                      setSelectedTooth(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex border-b border-slate-100 text-xs font-bold text-slate-500">
+                <button
+                  type="button"
+                  onClick={() => setActivePatientTab('notes')}
+                  className={`flex-1 pb-3 text-center transition-all border-b-2 ${activePatientTab === 'notes' ? 'text-indigo-600 border-indigo-600 font-bold' : 'border-transparent hover:text-slate-800'}`}
                 >
-                  <X className="w-5 h-5" />
+                  Ficha & Anamnese
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePatientTab('odontogram')}
+                  className={`flex-1 pb-3 text-center transition-all border-b-2 ${activePatientTab === 'odontogram' ? 'text-indigo-600 border-indigo-600 font-bold' : 'border-transparent hover:text-slate-800'}`}
+                >
+                  Odontograma Clínico
                 </button>
               </div>
 
-              {/* Patient details edit form */}
-              <form onSubmit={handleUpdateMedicalFile} className="space-y-5">
-                
-                {/* Allergies section */}
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Alergias e Restrições Clínicas</label>
-                  <input 
-                    type="text"
-                    value={selectedPatientForHistory.allergies}
-                    onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, allergies: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
-                    placeholder="Ex: Alergias clínicas relatadas."
-                  />
-                  <p className="text-[9px] text-slate-400 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" /> Informação vital de anamnese médica.</p>
-                </div>
+              {activePatientTab === 'notes' ? (
+                <form onSubmit={handleUpdateMedicalFile} className="space-y-5">
+                  {/* Allergies section */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Alergias e Restrições Clínicas</label>
+                    <input 
+                      type="text"
+                      value={selectedPatientForHistory.allergies}
+                      onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, allergies: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
+                      placeholder="Ex: Alergias clínicas relatadas."
+                    />
+                    <p className="text-[9px] text-slate-400 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" /> Informação vital de anamnese médica.</p>
+                  </div>
 
-                {/* Medical notes/Anamnesis */}
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-bold text-slate-555 uppercase tracking-wider">Evolução Clínica & Histórico de Prontuário</label>
-                  <textarea 
-                    rows="8"
-                    value={selectedPatientForHistory.medicalNotes}
-                    onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, medicalNotes: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 leading-relaxed shadow-sm"
-                    placeholder="Inserir notas clínicas..."
-                  />
-                </div>
+                  {/* Medical notes/Anamnesis */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Evolução Clínica & Histórico de Prontuário</label>
+                    <textarea 
+                      rows="8"
+                      value={selectedPatientForHistory.medicalNotes}
+                      onChange={e => setSelectedPatientForHistory({ ...selectedPatientForHistory, medicalNotes: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 leading-relaxed shadow-sm"
+                      placeholder="Inserir notas clínicas..."
+                    />
+                  </div>
 
-                {/* Treatments list */}
-                <div className="space-y-2.5">
-                  <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider">Procedimentos Vinculados</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedPatientForHistory.treatments?.map((t, idx) => (
-                      <span key={idx} className="bg-slate-100 text-slate-700 border border-slate-200/50 px-2.5 py-1 rounded-xl text-[10px] font-bold">
-                        {t}
-                      </span>
-                    )) || <span className="text-slate-400 text-xs italic">Nenhum tratamento registrado.</span>}
+                  {/* Treatments list */}
+                  <div className="space-y-2.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Procedimentos Vinculados</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedPatientForHistory.treatments?.map((t, idx) => (
+                        <span key={idx} className="bg-slate-100 text-slate-700 border border-slate-200/50 px-2.5 py-1 rounded-xl text-[10px] font-bold">
+                          {t}
+                        </span>
+                      )) || <span className="text-slate-400 text-xs italic">Nenhum tratamento registrado.</span>}
+                    </div>
+                  </div>
+
+                  {/* Form Buttons */}
+                  <div className="border-t border-slate-100 pt-6 flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => { setSelectedPatientForHistory(null); setSelectedTooth(null); }} 
+                      className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors text-xs"
+                    >
+                      Fechar Prontuário
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="flex-1 py-2.5 px-4 bg-slate-900 border border-slate-950 text-white rounded-xl font-bold hover:bg-slate-800 shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" /> Gravar Alterações
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-5">
+                  <div className="space-y-1">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Arcada Dentária Interativa</h4>
+                    <p className="text-[11px] text-slate-400">Clique em qualquer dente para editar seu estado clínico ou registrar observações.</p>
+                  </div>
+
+                  {/* Visual Odontogram Grid */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 overflow-x-auto select-none">
+                    {/* Arch Superior */}
+                    <div className="space-y-1.5 min-w-[620px]">
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center">Arcada Superior (Maxilar)</p>
+                      <div className="flex justify-center gap-1">
+                        {[18, 17, 16, 15, 14, 13, 12, 11].map(num => renderToothButton(num))}
+                        <div className="w-0.5 bg-slate-300 mx-1 self-stretch"></div>
+                        {[21, 22, 23, 24, 25, 26, 27, 28].map(num => renderToothButton(num))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 min-w-[620px]"></div>
+
+                    {/* Arch Inferior */}
+                    <div className="space-y-1.5 min-w-[620px]">
+                      <div className="flex justify-center gap-1">
+                        {[48, 47, 46, 45, 44, 43, 42, 41].map(num => renderToothButton(num))}
+                        <div className="w-0.5 bg-slate-300 mx-1 self-stretch"></div>
+                        {[31, 32, 33, 34, 35, 36, 37, 38].map(num => renderToothButton(num))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center">Arcada Inferior (Mandibular)</p>
+                    </div>
+                  </div>
+
+                  {/* Active Tooth Editor */}
+                  {selectedTooth ? (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3.5 animate-fade-in">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Stethoscope className="w-4 h-4 text-indigo-600" />
+                          Editar Elemento {selectedTooth}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTooth(null)}
+                          className="text-[10px] text-slate-400 hover:text-slate-600 font-bold"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Status Clínico</label>
+                          <select
+                            value={toothEditState.status}
+                            onChange={e => setToothEditState({ ...toothEditState, status: e.target.value })}
+                            className="w-full border border-slate-300 rounded-xl p-2 text-xs font-semibold text-slate-700 bg-white outline-none focus:border-indigo-600"
+                          >
+                            <option value="saudavel">Saudável</option>
+                            <option value="carie">Cárie / Cavidade</option>
+                            <option value="restauracao">Restauração</option>
+                            <option value="canal">Canal (Tratado)</option>
+                            <option value="implante">Implante</option>
+                            <option value="ausente">Ausente / Extraído</option>
+                          </select>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Anotações do Dente</label>
+                          <input
+                            type="text"
+                            value={toothEditState.notes}
+                            onChange={e => setToothEditState({ ...toothEditState, notes: e.target.value })}
+                            placeholder="Ex: Restauração em resina oclusal..."
+                            className="w-full border border-slate-300 rounded-xl p-2 text-xs font-medium text-slate-700 bg-white outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedOdontogram = {
+                              ...selectedPatientForHistory.odontogram,
+                              [selectedTooth]: { status: toothEditState.status, notes: toothEditState.notes }
+                            };
+                            setSelectedPatientForHistory({
+                              ...selectedPatientForHistory,
+                              odontogram: updatedOdontogram
+                            });
+                            addToast(`Elemento ${selectedTooth} atualizado na ficha.`, 'success');
+                            setSelectedTooth(null);
+                          }}
+                          className="bg-slate-900 border border-slate-950 text-white text-[10px] font-bold px-4 py-2 rounded-xl hover:bg-slate-800 transition-all flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Salvar Dente
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                      <Info className="w-5 h-5 mx-auto mb-2 text-slate-300" />
+                      Selecione um dente no odontograma para visualizar detalhes ou editar seu status.
+                    </div>
+                  )}
+
+                  {/* Form Save/Close Buttons */}
+                  <div className="border-t border-slate-100 pt-6 flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => { setSelectedPatientForHistory(null); setSelectedTooth(null); }} 
+                      className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors text-xs"
+                    >
+                      Fechar Prontuário
+                    </button>
+                    <button 
+                      onClick={handleUpdateMedicalFile}
+                      className="flex-1 py-2.5 px-4 bg-slate-900 border border-slate-950 text-white rounded-xl font-bold hover:bg-slate-800 shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" /> Gravar Alterações
+                    </button>
                   </div>
                 </div>
-
-                {/* Form Buttons */}
-                <div className="border-t border-slate-100 pt-6 flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => setSelectedPatientForHistory(null)} 
-                    className="flex-1 py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors text-xs"
-                  >
-                    Fechar Prontuário
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="flex-1 py-2.5 px-4 bg-slate-900 border border-slate-950 text-white rounded-xl font-bold hover:bg-slate-800 shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
-                  >
-                    <Save className="w-4 h-4" /> Gravar Alterações
-                  </button>
-                </div>
-
-              </form>
+              )}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EMISSÃO DE DOCUMENTOS */}
+      {isPrescriptionModalOpen && selectedPatientForHistory && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-slate-200 overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Emissão de Documento Clínico</h3>
+                  <p className="text-[10px] text-slate-400">Paciente: {selectedPatientForHistory.name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPrescriptionModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Type Selection */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo de Documento</label>
+                  <select
+                    value={prescriptionForm.type}
+                    onChange={e => {
+                      const newType = e.target.value;
+                      setPrescriptionForm({ ...prescriptionForm, type: newType, template: 'personalizado', content: '' });
+                    }}
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700 bg-white outline-none focus:border-indigo-600"
+                  >
+                    <option value="receita_simples">Receita Simples</option>
+                    <option value="receita_controlada">Receita Controle Especial</option>
+                    <option value="atestado">Atestado Odontológico</option>
+                  </select>
+                </div>
+
+                {/* Template Selection */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modelo / Template</label>
+                  <select
+                    value={prescriptionForm.template}
+                    onChange={e => handleTemplateChange(e.target.value, prescriptionForm.type)}
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700 bg-white outline-none focus:border-indigo-600"
+                  >
+                    <option value="personalizado">Texto Personalizado</option>
+                    {prescriptionForm.type === 'receita_simples' && (
+                      <>
+                        <option value="analgesico">Protocolo Analgésico Comum</option>
+                        <option value="antibiotico">Protocolo Antibiótico</option>
+                      </>
+                    )}
+                    {prescriptionForm.type === 'receita_controlada' && (
+                      <option value="analgesico_forte">Analgésico Forte (Codeína)</option>
+                    )}
+                    {prescriptionForm.type === 'atestado' && (
+                      <>
+                        <option value="atestado_comparecimento">Atestado de Comparecimento</option>
+                        <option value="atestado_repouso">Atestado de Repouso</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Text Area Content */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Conteúdo do Documento</label>
+                <textarea
+                  rows="10"
+                  value={prescriptionForm.content}
+                  onChange={e => setPrescriptionForm({ ...prescriptionForm, content: e.target.value })}
+                  placeholder="Escreva a receita ou atestado aqui..."
+                  className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono font-medium bg-slate-50 focus:bg-white text-slate-800 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 leading-relaxed"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => setIsPrescriptionModalOpen(false)}
+                className="py-2 px-4 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePrintPrescription}
+                className="py-2 px-5 bg-indigo-600 border border-indigo-700 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-sm transition-colors text-xs flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4" /> Gerar PDF / Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRINT AREA FOR PRESCRIPTIONS / CERTIFICATES (HIDDEN IN SCREEN MEDIA) */}
+      {selectedPatientForHistory && (
+        <div id="print-prescription-area">
+          <div className="print-header">
+            <div className="print-logo-section">
+              <h2>{clinicInfo.name}</h2>
+              <p>CNPJ: {clinicInfo.cnpj} | Responsabilidade Técnica Odontológica</p>
+            </div>
+            <div className="print-contact-section">
+              <p>{clinicInfo.address}</p>
+              <p>Fone: {clinicInfo.phone} | {clinicInfo.email}</p>
+            </div>
+          </div>
+          
+          <div className="print-divider"></div>
+          
+          <div className="print-body">
+            <div className="print-patient-info">
+              <p><strong>Paciente:</strong> {selectedPatientForHistory.name}</p>
+              <p><strong>Data de Emissão:</strong> {new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            
+            <div className="print-document-content">
+              {prescriptionForm.content}
+            </div>
+          </div>
+          
+          <div className="print-footer">
+            <div className="print-signature-line"></div>
+            <p><strong>{currentUser?.name || 'Cirurgião Dentista'}</strong></p>
+            <p>{currentUser?.cro || 'Registro CRO-PR'}</p>
           </div>
         </div>
       )}

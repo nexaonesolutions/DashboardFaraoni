@@ -1,3 +1,111 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Print Media Stylesheet */
+@media print {
+  /* Hide the rest of the application layout */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the prescription area */
+  #print-prescription-area, #print-prescription-area * {
+    visibility: visible;
+  }
+  
+  #print-prescription-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 95vh;
+    padding: 50px;
+    background: white;
+    color: black;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  /* Reset margins for page print */
+  @page {
+    margin: 1.5cm;
+  }
+}
+
+/* Screen Mode: hide the print layout entirely */
+#print-prescription-area {
+  display: none;
+}
+
+/* Print specific layout classes for clean typography */
+.print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 15px;
+}
+.print-logo-section h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: #0f172a;
+}
+.print-logo-section p {
+  font-size: 11px;
+  color: #475569;
+  margin: 4px 0 0 0;
+}
+.print-contact-section p {
+  font-size: 11px;
+  color: #475569;
+  margin: 2px 0;
+  text-align: right;
+}
+.print-divider {
+  margin-top: 15px;
+}
+.print-body {
+  flex: 1;
+  margin-top: 40px;
+}
+.print-patient-info {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 30px;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+}
+.print-patient-info p {
+  margin: 0;
+}
+.print-document-content {
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: #1e293b;
+  min-height: 350px;
+  font-family: 'Courier New', Courier, monospace;
+}
+.print-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 50px;
+}
+.print-signature-line {
+  width: 250px;
+  border-top: 1px solid #94a3b8;
+  margin-bottom: 10px;
+}
+.print-footer p {
+  margin: 2px 0;
+  font-size: 11px;
+}
