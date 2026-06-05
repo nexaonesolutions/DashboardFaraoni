@@ -1301,7 +1301,7 @@ const App = () => {
                     const appt = slot.appt;
                     if (!appt) {
                       return (
-                        <div key={index} className="flex items-center gap-4 p-4 border rounded-xl border-slate-100 bg-slate-50/40 hover:bg-slate-50/80 transition-colors">
+                        <div key={slot.time} className="flex items-center gap-4 p-4 border rounded-xl border-slate-100 bg-slate-50/40 hover:bg-slate-50/80 transition-colors">
                           <div className="w-16 font-bold text-slate-400 text-xs flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
                             {slot.time}
@@ -1328,7 +1328,7 @@ const App = () => {
 
                     return (
                       <div 
-                        key={appt.id} 
+                        key={slot.time} 
                         className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-xl relative overflow-hidden transition-all hover:shadow-sm ${
                           isConcluido ? 'border-slate-200 bg-slate-50/40 opacity-80' :
                           isConfirmado ? 'border-indigo-100 bg-indigo-50/10' : 
