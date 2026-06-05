@@ -516,6 +516,7 @@ const App = () => {
 
   // Filtragem de agendamentos com base no profissional logado e nos filtros do painel
   const getVisibleAppointments = () => {
+    if (!currentUser) return [];
     let list = appointments;
     
     // Se logado como dentista, exibe apenas os seus agendamentos
