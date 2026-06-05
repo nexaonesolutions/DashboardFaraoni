@@ -25,7 +25,7 @@ const App = () => {
     name: 'Dr. Orlando Faraoni',
     cro: 'CRO-PR 12345',
     specialty: 'Implantodontia e Estética Dental',
-    email: 'orlando.faraoni@odontofaraoni.com.br',
+    email: 'admin@odontofaraoni.com.br',
     password: 'admin'
   });
 
@@ -155,7 +155,11 @@ const App = () => {
   // Lógica de Login com barra de carregamento limpa (sem neon)
   const handleLogin = (e) => {
     e.preventDefault();
-    if (emailInput.toLowerCase() === dentistProfile.email.toLowerCase() && passwordInput === dentistProfile.password) {
+    const normalizedEmailInput = emailInput.toLowerCase().trim();
+    const isCorrectEmail = normalizedEmailInput === dentistProfile.email.toLowerCase() || 
+                           normalizedEmailInput === 'orlando.faraoni@odontofaraoni.com.br';
+    
+    if (isCorrectEmail && passwordInput === dentistProfile.password) {
       setIsLoggingIn(true);
       setLoadingProgress(0);
       setLoadingText('Autenticando credenciais...');
