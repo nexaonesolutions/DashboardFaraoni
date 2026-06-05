@@ -19,14 +19,23 @@
     left: 0;
     top: 0;
     width: 100%;
+    background: white;
+    color: black;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .print-page {
     display: flex !important;
     flex-direction: column;
     justify-content: space-between;
     height: 95vh;
     padding: 50px;
-    background: white;
-    color: black;
-    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+    page-break-after: always;
+  }
+  
+  .print-page:last-child {
+    page-break-after: avoid;
   }
   
   /* Reset margins for page print */
@@ -150,10 +159,52 @@
   font-weight: bold;
 }
 .print-system-tag {
-  margin-top: 35px;
   font-size: 8px;
   color: #94a3b8;
   font-weight: bold;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+.print-footer-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 40px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 25px;
+  width: 100%;
+}
+.print-stamp-box {
+  width: 150px;
+  height: 80px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fafafa;
+}
+.print-stamp-text {
+  font-size: 8px;
+  color: #94a3b8;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.print-system-tag-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 15px;
+}
+.print-copy-badge {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #475569;
+  background-color: #f8fafc;
 }

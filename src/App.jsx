@@ -91,10 +91,15 @@ const App = () => {
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState(null);
   const [activePatientTab, setActivePatientTab] = useState('notes'); // 'notes' | 'odontogram'
   const [selectedTooth, setSelectedTooth] = useState(null); // ID do dente selecionado para edição (ex: 14)
-  const [toothEditState, setToothEditState] = useState({ status: 'saudavel', notes: '' });
+  const [toothEditState, setToothEditState] = useState({ 
+    status: 'saudavel', 
+    notes: '', 
+    faces: { oclusal: false, mesial: false, distal: false, vestibular: false, lingual: false } 
+  });
 
   // Modal de Emissão de Documentos
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
+  const [viaType, setViaType] = useState('paciente'); // 'paciente' | 'prontuario' | 'ambas'
   const [prescriptionForm, setPrescriptionForm] = useState({
     type: 'receita_simples', // 'receita_simples' | 'receita_controlada' | 'atestado'
     template: 'personalizado',
@@ -153,8 +158,16 @@ const App = () => {
       medicalNotes: 'Paciente compareceu para consulta periódica. Relata leve sensibilidade térmica no quadrante inferior esquerdo. Ao exame físico, detectou-se integridade em todas as restaurações. Realizada raspagem supra e subgengival acompanhada de profilaxia e aplicação tópica de flúor.',
       treatments: ['Profilaxia Clínica', 'Raspagem Periodontal'],
       odontogram: {
-        14: { status: 'restauracao', notes: 'Restauração oclusal em resina fotopolimerizável realizada.' },
-        16: { status: 'canal', notes: 'Tratamento de canal do elemento concluído.' }
+        14: { 
+          status: 'restauracao', 
+          faces: { oclusal: true, mesial: true, distal: false, vestibular: false, lingual: false }, 
+          notes: 'Restauração oclusal em resina fotopolimerizável realizada.' 
+        },
+        16: { 
+          status: 'canal', 
+          faces: { oclusal: true, mesial: false, distal: false, vestibular: false, lingual: false }, 
+          notes: 'Tratamento de canal do elemento concluído.' 
+        }
       }
     },
     { 
@@ -169,8 +182,16 @@ const App = () => {
       medicalNotes: 'Realizado procedimento cirúrgico para instalação de implante de titânio (cone morse) no elemento 14. Torque de inserção obtido: 45 N.cm. Prescrito protocolo analgésico e anti-inflamatório (Amoxicilina contraindicada, optado por Clindamicina em caso de infecção secundária). Suturas posicionadas perfeitamente.',
       treatments: ['Implante Dentário', 'Enxerto Ósseo Autógeno'],
       odontogram: {
-        14: { status: 'implante', notes: 'Implante Cone Morse instalado com torque de 45 N.cm.' },
-        36: { status: 'carie', notes: 'Indicação de lesão cariosa ativa identificada.' }
+        14: { 
+          status: 'implante', 
+          faces: { oclusal: false, mesial: false, distal: false, vestibular: false, lingual: false }, 
+          notes: 'Implante Cone Morse instalado com torque de 45 N.cm.' 
+        },
+        36: { 
+          status: 'carie', 
+          faces: { oclusal: true, mesial: false, distal: true, vestibular: false, lingual: false }, 
+          notes: 'Indicação de lesão cariosa ativa identificada.' 
+        }
       }
     },
     { 
@@ -1049,19 +1070,33 @@ const App = () => {
   // Helper para renderizar botão de dente do Odontograma
   const renderToothButton = (num) => {
     if (!selectedPatientForHistory) return null;
-    const tooth = selectedPatientForHistory.odontogram?.[num] || { status: 'saudavel', notes: '' };
+    const tooth = selectedPatientForHistory.odontogram?.[num] || { 
+      status: 'saudavel', 
+      notes: '', 
+      faces: { oclusal: false, mesial: false, distal: false, vestibular: false, lingual: false } 
+    };
+    const faces = tooth.faces || { oclusal: false, mesial: false, distal: false, vestibular: false, lingual: false };
     const isSelected = selectedTooth === num;
     
     const statusConfig = {
-      saudavel: { bg: 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800', dot: 'bg-slate-200 border-slate-300' },
-      carie: { bg: 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-700', dot: 'bg-rose-500 border-rose-600 animate-pulse' },
-      restauracao: { bg: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500 border-indigo-600' },
-      canal: { bg: 'bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700', dot: 'bg-amber-500 border-amber-600' },
-      implante: { bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700', dot: 'bg-purple-500 border-purple-600' },
-      ausente: { bg: 'bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-400 border-dashed', dot: 'bg-transparent border-slate-300 border-dashed' }
+      saudavel: { bg: 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800' },
+      carie: { bg: 'bg-rose-50/40 border-rose-200 hover:bg-rose-50 text-rose-700' },
+      restauracao: { bg: 'bg-indigo-50/40 border-indigo-200 hover:bg-indigo-50 text-indigo-700' },
+      canal: { bg: 'bg-amber-50/40 border-amber-200 hover:bg-amber-50 text-amber-700' },
+      implante: { bg: 'bg-purple-50/40 border-purple-200 hover:bg-purple-50 text-purple-700' },
+      ausente: { bg: 'bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-400 border-dashed' }
     };
     
     const config = statusConfig[tooth.status] || statusConfig.saudavel;
+
+    const getFaceColor = (faceName) => {
+      const isAffected = faces[faceName];
+      if (!isAffected) return 'fill-white hover:fill-slate-50/50';
+      if (tooth.status === 'carie') return 'fill-rose-500 hover:fill-rose-600';
+      if (tooth.status === 'restauracao') return 'fill-indigo-500 hover:fill-indigo-600';
+      if (tooth.status === 'canal') return 'fill-amber-500 hover:fill-amber-600';
+      return 'fill-white';
+    };
 
     return (
       <button
@@ -1069,18 +1104,42 @@ const App = () => {
         type="button"
         onClick={() => {
           setSelectedTooth(num);
-          setToothEditState({ status: tooth.status, notes: tooth.notes || '' });
+          setToothEditState({ 
+            status: tooth.status, 
+            notes: tooth.notes || '', 
+            faces: { 
+              oclusal: faces.oclusal || false,
+              mesial: faces.mesial || false,
+              distal: faces.distal || false,
+              vestibular: faces.vestibular || false,
+              lingual: faces.lingual || false
+            } 
+          });
         }}
-        className={`w-9 h-14 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all relative shrink-0 select-none ${config.bg} ${
+        className={`w-9.5 h-16 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all relative shrink-0 select-none ${config.bg} ${
           isSelected ? 'ring-2 ring-indigo-600 border-transparent shadow-sm scale-105 z-10' : ''
         }`}
       >
-        <span className="text-[10px] font-bold">{num}</span>
-        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${config.dot}`}>
-          {tooth.status === 'implante' && <span className="text-[6px] text-white font-extrabold">I</span>}
-          {tooth.status === 'canal' && <span className="text-[6px] text-white font-extrabold">C</span>}
-          {tooth.status === 'carie' && <span className="text-[6px] text-white font-extrabold">!</span>}
-        </span>
+        <span className="text-[10px] font-bold text-slate-700">{num}</span>
+        {tooth.status === 'implante' ? (
+          <svg className="w-5.5 h-5.5 text-purple-600 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2v16M8 6h8M9 10h6M8 14h8M10 18h4M12 18v4" />
+          </svg>
+        ) : tooth.status === 'ausente' ? (
+          <svg className="w-5.5 h-5.5 text-slate-300 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="8" y1="8" x2="16" y2="16" />
+            <line x1="16" y1="8" x2="8" y2="16" />
+          </svg>
+        ) : (
+          <svg className="w-6 h-6 border border-slate-200/80 rounded bg-white mb-0.5 shadow-sm" viewBox="0 0 30 30">
+            <path d="M 0 0 L 30 0 L 21 9 L 9 9 Z" className={`${getFaceColor('vestibular')} stroke-slate-300 transition-colors`} strokeWidth="0.75" />
+            <path d="M 30 0 L 30 30 L 21 21 L 21 9 Z" className={`${getFaceColor('distal')} stroke-slate-300 transition-colors`} strokeWidth="0.75" />
+            <path d="M 9 21 L 21 21 L 30 30 L 0 30 Z" className={`${getFaceColor('lingual')} stroke-slate-300 transition-colors`} strokeWidth="0.75" />
+            <path d="M 0 0 L 9 9 L 9 21 L 0 30 Z" className={`${getFaceColor('mesial')} stroke-slate-300 transition-colors`} strokeWidth="0.75" />
+            <rect x="9" y="9" width="12" height="12" className={`${getFaceColor('oclusal')} stroke-slate-300 transition-colors`} strokeWidth="0.75" />
+          </svg>
+        )}
       </button>
     );
   };
@@ -2872,13 +2931,105 @@ const App = () => {
                         </div>
                       </div>
 
+                      {/* Checkboxes das 5 faces anatômicas para dentes com cárie, restauração ou canal */}
+                      {['carie', 'restauracao', 'canal'].includes(toothEditState.status) && (
+                        <div className="border-t border-slate-200/60 pt-3 space-y-2">
+                          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Faces Acometidas / Tratadas</label>
+                          <div className="flex justify-center">
+                            <div className="grid grid-cols-3 gap-2 items-center justify-items-center max-w-[240px]">
+                              {/* Top row: empty, Vestibular, empty */}
+                              <div></div>
+                              <label className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all cursor-pointer select-none w-16 h-11 text-center ${toothEditState.faces?.vestibular ? 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-1 ring-indigo-300' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                <span className="text-[9px] font-bold">Vestibular</span>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={toothEditState.faces?.vestibular || false}
+                                  onChange={e => setToothEditState({
+                                    ...toothEditState,
+                                    faces: { ...toothEditState.faces, vestibular: e.target.checked }
+                                  })}
+                                />
+                                <span className="text-[7px] uppercase font-extrabold text-slate-400 mt-0.5">V</span>
+                              </label>
+                              <div></div>
+
+                              {/* Middle row: Mesial, Oclusal, Distal */}
+                              <label className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all cursor-pointer select-none w-16 h-11 text-center ${toothEditState.faces?.mesial ? 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-1 ring-indigo-300' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                <span className="text-[9px] font-bold">Mesial</span>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={toothEditState.faces?.mesial || false}
+                                  onChange={e => setToothEditState({
+                                    ...toothEditState,
+                                    faces: { ...toothEditState.faces, mesial: e.target.checked }
+                                  })}
+                                />
+                                <span className="text-[7px] uppercase font-extrabold text-slate-400 mt-0.5">M</span>
+                              </label>
+
+                              <label className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all cursor-pointer select-none w-16 h-11 text-center ${toothEditState.faces?.oclusal ? 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-1 ring-indigo-300' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                <span className="text-[9px] font-bold">Oclusal</span>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={toothEditState.faces?.oclusal || false}
+                                  onChange={e => setToothEditState({
+                                    ...toothEditState,
+                                    faces: { ...toothEditState.faces, oclusal: e.target.checked }
+                                  })}
+                                />
+                                <span className="text-[7px] uppercase font-extrabold text-slate-400 mt-0.5">O</span>
+                              </label>
+
+                              <label className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all cursor-pointer select-none w-16 h-11 text-center ${toothEditState.faces?.distal ? 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-1 ring-indigo-300' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                <span className="text-[9px] font-bold">Distal</span>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={toothEditState.faces?.distal || false}
+                                  onChange={e => setToothEditState({
+                                    ...toothEditState,
+                                    faces: { ...toothEditState.faces, distal: e.target.checked }
+                                  })}
+                                />
+                                <span className="text-[7px] uppercase font-extrabold text-slate-400 mt-0.5">D</span>
+                              </label>
+
+                              {/* Bottom row: empty, Lingual, empty */}
+                              <div></div>
+                              <label className={`flex flex-col items-center justify-center p-1 rounded-lg border transition-all cursor-pointer select-none w-16 h-11 text-center ${toothEditState.faces?.lingual ? 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-1 ring-indigo-300' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                <span className="text-[9px] font-bold">Lingual</span>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={toothEditState.faces?.lingual || false}
+                                  onChange={e => setToothEditState({
+                                    ...toothEditState,
+                                    faces: { ...toothEditState.faces, lingual: e.target.checked }
+                                  })}
+                                />
+                                <span className="text-[7px] uppercase font-extrabold text-slate-400 mt-0.5">L</span>
+                              </label>
+                              <div></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex justify-end gap-2 pt-1">
                         <button
                           type="button"
                           onClick={() => {
+                            const hasFaces = ['carie', 'restauracao', 'canal'].includes(toothEditState.status);
                             const updatedOdontogram = {
                               ...selectedPatientForHistory.odontogram,
-                              [selectedTooth]: { status: toothEditState.status, notes: toothEditState.notes }
+                              [selectedTooth]: { 
+                                status: toothEditState.status, 
+                                notes: toothEditState.notes,
+                                faces: hasFaces ? toothEditState.faces : { oclusal: false, mesial: false, distal: false, vestibular: false, lingual: false }
+                              }
                             };
                             setSelectedPatientForHistory({
                               ...selectedPatientForHistory,
@@ -2947,7 +3098,7 @@ const App = () => {
 
             {/* Modal Body */}
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Type Selection */}
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo de Documento</label>
@@ -2989,6 +3140,20 @@ const App = () => {
                         <option value="atestado_repouso">Atestado de Repouso</option>
                       </>
                     )}
+                  </select>
+                </div>
+
+                {/* Print Via Selection */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vias de Impressão</label>
+                  <select
+                    value={viaType}
+                    onChange={e => setViaType(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700 bg-white outline-none focus:border-indigo-600"
+                  >
+                    <option value="paciente">1ª Via (Paciente)</option>
+                    <option value="prontuario">2ª Via (Prontuário)</option>
+                    <option value="ambas">Ambas as Vias</option>
                   </select>
                 </div>
               </div>
@@ -3049,56 +3214,73 @@ const App = () => {
       {/* PRINT AREA FOR PRESCRIPTIONS / CERTIFICATES (HIDDEN IN SCREEN MEDIA) */}
       {selectedPatientForHistory && (
         <div id="print-prescription-area">
-          {/* Header section */}
-          <div className="print-header">
-            <div className="print-logo-section">
-              <h2>{clinicInfo.name}</h2>
-              <p className="print-subtitle">CNPJ: {clinicInfo.cnpj} | Registro de Licença Sanitária</p>
-            </div>
-            <div className="print-contact-section">
-              <p className="print-address">{clinicInfo.address}</p>
-              <p className="print-contact">Fone: {clinicInfo.phone} | {clinicInfo.email}</p>
-            </div>
-          </div>
-          
-          <div className="print-double-divider"></div>
-          
-          {/* Document Body */}
-          <div className="print-body">
-            <div className="print-doc-title">
-              {prescriptionForm.type === 'receita_simples' ? 'RECEITUÁRIO ODONTOLÓGICO' :
-               prescriptionForm.type === 'receita_controlada' ? 'RECEITUÁRIO DE CONTROLE ESPECIAL' :
-               'ATESTADO ODONTOLÓGICO'}
-            </div>
+          {(viaType === 'ambas' ? ['paciente', 'prontuario'] : [viaType]).map((via) => {
+            const viaLabel = via === 'paciente' ? '1ª Via - Paciente' : '2ª Via - Prontuário';
+            return (
+              <div key={via} className="print-page">
+                {/* Header section */}
+                <div className="print-header">
+                  <div className="print-logo-section">
+                    <h2>{clinicInfo.name}</h2>
+                    <p className="print-subtitle">CNPJ: {clinicInfo.cnpj} | Registro de Licença Sanitária</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="print-copy-badge">{viaLabel}</span>
+                    <div className="print-contact-section">
+                      <p className="print-address">{clinicInfo.address}</p>
+                      <p className="print-contact">Fone: {clinicInfo.phone} | {clinicInfo.email}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="print-double-divider"></div>
+                
+                {/* Document Body */}
+                <div className="print-body">
+                  <div className="print-doc-title">
+                    {prescriptionForm.type === 'receita_simples' ? 'RECEITUÁRIO ODONTOLÓGICO' :
+                     prescriptionForm.type === 'receita_controlada' ? 'RECEITUÁRIO DE CONTROLE ESPECIAL' :
+                     'ATESTADO ODONTOLÓGICO'}
+                  </div>
 
-            <div className="print-patient-info">
-              <div>
-                <span className="print-info-label">PACIENTE: </span>
-                <span className="print-info-value">{selectedPatientForHistory.name}</span>
+                  <div className="print-patient-info">
+                    <div>
+                      <span className="print-info-label">PACIENTE: </span>
+                      <span className="print-info-value">{selectedPatientForHistory.name}</span>
+                    </div>
+                    <div>
+                      <span className="print-info-label">EMISSÃO: </span>
+                      <span className="print-info-value">{new Date().toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="print-document-content">
+                    {prescriptionForm.content}
+                  </div>
+                </div>
+                
+                {/* Signature and Stamp Footer */}
+                <div>
+                  <div className="print-footer-grid">
+                    <div className="print-signature-box">
+                      <div className="print-signature-line"></div>
+                      <p className="print-dentist-name"><strong>{activeSigningDentist.name}</strong></p>
+                      <p className="print-dentist-cro">{activeSigningDentist.cro}</p>
+                      <p className="print-dentist-role">Cirurgião Dentista Responsável</p>
+                    </div>
+                    <div className="print-stamp-box">
+                      <span className="print-stamp-text">Carimbo Clínico</span>
+                    </div>
+                  </div>
+                  <div className="print-system-tag-container">
+                    <div className="print-system-tag">
+                      Documento clínico gerado via OdontoGestão - Prontuário Eletrônico de Saúde Bucal
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="print-info-label">EMISSÃO: </span>
-                <span className="print-info-value">{new Date().toLocaleDateString('pt-BR')}</span>
-              </div>
-            </div>
-            
-            <div className="print-document-content">
-              {prescriptionForm.content}
-            </div>
-          </div>
-          
-          {/* Signature Footer */}
-          <div className="print-footer">
-            <div className="print-signature-box">
-              <div className="print-signature-line"></div>
-              <p className="print-dentist-name"><strong>{activeSigningDentist.name}</strong></p>
-              <p className="print-dentist-cro">{activeSigningDentist.cro}</p>
-              <p className="print-dentist-role">Cirurgião Dentista Responsável</p>
-            </div>
-            <div className="print-system-tag">
-              Documento clínico gerado via OdontoGestão - Prontuário Eletrônico de Saúde Bucal
-            </div>
-          </div>
+            );
+          })}
         </div>
       )}
 
