@@ -687,6 +687,19 @@ const App = () => {
 
   const visibleAppointments = getVisibleAppointments();
 
+  // Filtragem de pacientes para exibição no prontuário
+  const getFilteredPatients = () => {
+    return patientsList.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                            p.email.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                            p.phone.includes(patientSearch);
+      const matchesFilter = patientStatusFilter === 'Todos' || p.status === patientStatusFilter;
+      return matchesSearch && matchesFilter;
+    });
+  };
+
+  const filteredPatients = getFilteredPatients();
+
   // Estatísticas
   const getStats = () => {
     const totalConsultas = visibleAppointments.filter(a => a.status !== 'Concluído').length;
@@ -1192,7 +1205,7 @@ const App = () => {
 
             <button 
               onClick={() => {
-                setFormData({ patientId: '', dentistId: isMaster ? '' : currentUser.id.toString(), procedure: '', time: '', date: '2026-06-05' });
+                setFormData({ patientId: '', dentistId: isMaster ? '' : currentUser?.id?.toString() || '', procedure: '', time: '', date: '2026-06-05' });
                 setIsModalOpen(true);
               }} 
               className="bg-slate-900 text-white p-2 md:px-3.5 md:py-2 rounded-xl flex items-center gap-2 hover:bg-slate-800 transition-all text-xs font-bold shadow-sm border border-slate-950"
@@ -1586,7 +1599,7 @@ const App = () => {
                           {patient.nextVisit === 'Agendar' ? (
                             <button 
                               onClick={() => {
-                                setFormData({ ...formData, patientId: patient.id.toString(), dentistId: isMaster ? '' : currentUser.id.toString() });
+                                setFormData({ ...formData, patientId: patient.id.toString(), dentistId: isMaster ? '' : currentUser?.id?.toString() || '' });
                                 setIsModalOpen(true);
                               }}
                               className="text-[10px] text-indigo-600 hover:text-indigo-700 font-bold border border-indigo-100 bg-indigo-50/40 px-2 py-0.5 rounded-lg"
