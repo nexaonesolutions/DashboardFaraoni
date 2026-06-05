@@ -45,67 +45,115 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 2px solid #0f172a;
-  padding-bottom: 15px;
 }
 .print-logo-section h2 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   margin: 0;
   color: #0f172a;
+  letter-spacing: -0.5px;
 }
-.print-logo-section p {
-  font-size: 11px;
-  color: #475569;
+.print-subtitle {
+  font-size: 10px;
+  color: #64748b;
   margin: 4px 0 0 0;
+  font-weight: bold;
 }
 .print-contact-section p {
-  font-size: 11px;
-  color: #475569;
+  font-size: 10px;
+  color: #64748b;
   margin: 2px 0;
   text-align: right;
+  font-weight: 550;
 }
-.print-divider {
+.print-double-divider {
   margin-top: 15px;
+  border-top: 3px double #0f172a;
 }
 .print-body {
   flex: 1;
-  margin-top: 40px;
+  margin-top: 35px;
+}
+.print-doc-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 1px;
+  margin-bottom: 30px;
 }
 .print-patient-info {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 30px;
-  font-size: 13px;
+  padding: 12px 18px;
+  margin-bottom: 35px;
+  font-size: 11px;
   display: flex;
   justify-content: space-between;
 }
-.print-patient-info p {
-  margin: 0;
+.print-info-label {
+  font-weight: 800;
+  color: #475569;
+  margin-right: 6px;
+}
+.print-info-value {
+  font-weight: 700;
+  color: #0f172a;
 }
 .print-document-content {
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 2;
   white-space: pre-wrap;
   color: #1e293b;
-  min-height: 350px;
+  min-height: 400px;
   font-family: 'Courier New', Courier, monospace;
+  padding: 10px 5px;
 }
 .print-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 40px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 25px;
+}
+.print-signature-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  margin-top: 50px;
 }
 .print-signature-line {
-  width: 250px;
-  border-top: 1px solid #94a3b8;
-  margin-bottom: 10px;
+  width: 280px;
+  border-top: 1px dashed #64748b;
+  margin-bottom: 8px;
 }
-.print-footer p {
-  margin: 2px 0;
-  font-size: 11px;
+.print-dentist-name {
+  font-size: 12px;
+  font-weight: bold;
+  color: #0f172a;
+  margin: 0;
+}
+.print-dentist-cro {
+  font-size: 10px;
+  color: #475569;
+  margin: 1px 0;
+  font-weight: bold;
+}
+.print-dentist-role {
+  font-size: 9px;
+  color: #64748b;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: bold;
+}
+.print-system-tag {
+  margin-top: 35px;
+  font-size: 8px;
+  color: #94a3b8;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }

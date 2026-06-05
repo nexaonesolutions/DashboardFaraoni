@@ -100,6 +100,7 @@ const App = () => {
     template: 'personalizado',
     content: ''
   });
+  const [signingDentistId, setSigningDentistId] = useState('');
   
   // Sub-abas de Definições
   const [settingsSubTab, setSettingsSubTab] = useState('clinic'); // 'clinic' | 'notifications' | 'billing'
@@ -577,6 +578,14 @@ const App = () => {
       template: 'personalizado',
       content: ''
     });
+    
+    if (currentUser && currentUser.role !== 'admin_master') {
+      setSigningDentistId(currentUser.id.toString());
+    } else if (dentistsList.length > 0) {
+      setSigningDentistId(dentistsList[0].id.toString());
+    } else {
+      setSigningDentistId('');
+    }
   };
 
   // Salvar Configuração da Clínica
@@ -709,6 +718,12 @@ const App = () => {
   };
 
   const filteredPatients = getFilteredPatients();
+
+  // Dentista responsável assinando o prontuário/documento impresso
+  const activeSigningDentist = dentistsList.find(d => d.id.toString() === signingDentistId) || {
+    name: currentUser?.name || 'Cirurgião Dentista',
+    cro: currentUser?.cro || 'CRO-PR'
+  };
 
   // Estatísticas
   const getStats = () => {
@@ -2978,6 +2993,27 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Seleção do profissional responsável pelo documento */}
+              {isMaster ? (
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dentista Responsável (Assinante)</label>
+                  <select
+                    value={signingDentistId}
+                    onChange={e => setSigningDentistId(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700 bg-white outline-none focus:border-indigo-600"
+                  >
+                    {dentistsList.map(d => (
+                      <option key={d.id} value={d.id.toString()}>{d.name} ({d.cro})</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Assinando como:</span>
+                  <span className="font-bold text-slate-700">{activeSigningDentist.name} ({activeSigningDentist.cro})</span>
+                </div>
+              )}
+
               {/* Text Area Content */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Conteúdo do Documento</label>
@@ -3013,23 +3049,37 @@ const App = () => {
       {/* PRINT AREA FOR PRESCRIPTIONS / CERTIFICATES (HIDDEN IN SCREEN MEDIA) */}
       {selectedPatientForHistory && (
         <div id="print-prescription-area">
+          {/* Header section */}
           <div className="print-header">
             <div className="print-logo-section">
               <h2>{clinicInfo.name}</h2>
-              <p>CNPJ: {clinicInfo.cnpj} | Responsabilidade Técnica Odontológica</p>
+              <p className="print-subtitle">CNPJ: {clinicInfo.cnpj} | Registro de Licença Sanitária</p>
             </div>
             <div className="print-contact-section">
-              <p>{clinicInfo.address}</p>
-              <p>Fone: {clinicInfo.phone} | {clinicInfo.email}</p>
+              <p className="print-address">{clinicInfo.address}</p>
+              <p className="print-contact">Fone: {clinicInfo.phone} | {clinicInfo.email}</p>
             </div>
           </div>
           
-          <div className="print-divider"></div>
+          <div className="print-double-divider"></div>
           
+          {/* Document Body */}
           <div className="print-body">
+            <div className="print-doc-title">
+              {prescriptionForm.type === 'receita_simples' ? 'RECEITUÁRIO ODONTOLÓGICO' :
+               prescriptionForm.type === 'receita_controlada' ? 'RECEITUÁRIO DE CONTROLE ESPECIAL' :
+               'ATESTADO ODONTOLÓGICO'}
+            </div>
+
             <div className="print-patient-info">
-              <p><strong>Paciente:</strong> {selectedPatientForHistory.name}</p>
-              <p><strong>Data de Emissão:</strong> {new Date().toLocaleDateString('pt-BR')}</p>
+              <div>
+                <span className="print-info-label">PACIENTE: </span>
+                <span className="print-info-value">{selectedPatientForHistory.name}</span>
+              </div>
+              <div>
+                <span className="print-info-label">EMISSÃO: </span>
+                <span className="print-info-value">{new Date().toLocaleDateString('pt-BR')}</span>
+              </div>
             </div>
             
             <div className="print-document-content">
@@ -3037,10 +3087,17 @@ const App = () => {
             </div>
           </div>
           
+          {/* Signature Footer */}
           <div className="print-footer">
-            <div className="print-signature-line"></div>
-            <p><strong>{currentUser?.name || 'Cirurgião Dentista'}</strong></p>
-            <p>{currentUser?.cro || 'Registro CRO-PR'}</p>
+            <div className="print-signature-box">
+              <div className="print-signature-line"></div>
+              <p className="print-dentist-name"><strong>{activeSigningDentist.name}</strong></p>
+              <p className="print-dentist-cro">{activeSigningDentist.cro}</p>
+              <p className="print-dentist-role">Cirurgião Dentista Responsável</p>
+            </div>
+            <div className="print-system-tag">
+              Documento clínico gerado via OdontoGestão - Prontuário Eletrônico de Saúde Bucal
+            </div>
           </div>
         </div>
       )}
